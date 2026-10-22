@@ -1,10 +1,21 @@
 # Monitoring your favorite webpages
 
+## Description
+
 A small Python script that monitors your favorite webpages and logs changes to the **visible** content (text, images, links). The script cycles through your list of webpages and, each time it runs, saves the current visible content for each webpage and compares it to the last saved version. It then writes to a log file that indicates, for each webpage on your list, whether changes were detected and, if so, exactly what has changed.
 
 The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
 
-Developed for Windows, but runs on any system with Python 3.
+### Limitations
+
+The script is designed to compare text. Images and graphics are not compared visually; instead, only their hash values are compared. As a result, the script only detects that an image or graphic has been modified, but not what specific visual changes have been made.
+
+The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
+>>>>>>> Stashed changes
+
+Developesd for Windows, but runs on any system with Python 3.
+
+### User Manual
 
 This README provides a concise overview. For the complete reference, consult **[DOCUMENTATION.md](DOCUMENTATION.md)**
 
@@ -78,4 +89,5 @@ Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#ou
 ## Authors
 
 - Pepe HB9EVT
+  https://github.com/pepe-hb9evt
 - Claude (Anthropic)
