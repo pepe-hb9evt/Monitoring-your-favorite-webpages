@@ -11,6 +11,7 @@ Report:               <PROJECT_DIR>\report-last-3-days.txt (short reports of the
                       newest first; older runs are removed automatically)
 Daily report:         <PROJECT_DIR>\daily-report.txt (rewritten on every run: newest capture compared
                       with the newest capture at least 24 hours old, or the oldest one available)
+Login:                HTTP Basic (default) or WordPress login form ("login": "wordpress"); see DOCUMENTATION.md
 Images:               each <img> is downloaded once per run and stored with a content hash
                       ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
 Console:              progress per webpage is shown while running (setting "console_progress")
@@ -118,6 +119,9 @@ PROGRESS_ERROR_WIDTH = 80  # longer error texts are shortened in the terminal wi
 CLOSING_DOTS = 5  # dots written after the run, one per CLOSING_DOT_SECONDS, before the window closes
 CLOSING_DOT_SECONDS = 1
 IMAGE_CACHE = {}  # image URL -> hash, so an image used on several pages is downloaded once per run
+LOGIN_SESSIONS = {}  # (login URL, username) -> logged-in requests.Session or error text, one login per run
+LOGIN_TYPES = ("basic", "wordpress")
+WP_LOGGED_IN_COOKIE = "wordpress_logged_in_"  # prefix of the cookie WordPress sets after a successful login
 UNKNOWN_HASH = "?"  # image could not be downloaded; ignored when comparing
 IMAGE_LINE = re.compile(r"^(.*) \| sha1=([0-9a-f]{16}|\?)$")
 HIDDEN_STYLE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
@@ -221,14 +225,16 @@ def extract(html, base_url):
 
 
 # --- Image content -------------------------------------------------------------------------
-def image_hash(url, auth):
-    """Return the first 16 hex digits of the SHA1 of the image bytes, or UNKNOWN_HASH on any problem."""
+def image_hash(url, auth, session=None):
+    """Return the first 16 hex digits of the SHA1 of the image bytes, or UNKNOWN_HASH on any problem.
+    session: logged-in session of a login-form site (its cookies only go to their own domain)."""
     if url in IMAGE_CACHE:
         return IMAGE_CACHE[url]
     result = UNKNOWN_HASH
     try:
-        with requests.get(url, headers={"User-Agent": UA}, timeout=IMAGE_TIMEOUT,
-                          auth=auth, stream=True, allow_redirects=True) as r:
+        getter = session.get if session is not None else requests.get
+        with getter(url, headers={"User-Agent": UA}, timeout=IMAGE_TIMEOUT,
+                    auth=auth, stream=True, allow_redirects=True) as r:
             r.raise_for_status()
             ct = r.headers.get("Content-Type", "").lower()
             if not ct or ct.startswith("image/") or "octet-stream" in ct:
@@ -247,7 +253,7 @@ def image_hash(url, auth):
     return result
 
 
-def add_image_hashes(images, page_url, auth):
+def add_image_hashes(images, page_url, auth, session=None):
     """Append ' | sha1=...' to each <img> line. Credentials are only sent to the host of the page."""
     host, out, fetched = urlparse(page_url).netloc.lower(), [], 0
     for line in images:
@@ -258,7 +264,7 @@ def add_image_hashes(images, page_url, auth):
         h = UNKNOWN_HASH
         if urlparse(url).scheme in ("http", "https") and (fetched < IMAGE_MAX_COUNT or url in IMAGE_CACHE):
             fetched += url not in IMAGE_CACHE
-            h = image_hash(url, auth if urlparse(url).netloc.lower() == host else None)
+            h = image_hash(url, auth if urlparse(url).netloc.lower() == host else None, session)
         out.append(f"{line} | sha1={h}")
     return out
 
@@ -559,6 +565,22 @@ def load_sites():
             if bool(username) != bool(password):
                 problems.append(f"Entry '{key}' skipped: 'username' and 'password' must be given together")
                 continue
+            login = value.get("login", "basic")
+            if login not in LOGIN_TYPES:
+                problems.append(f"Entry '{key}' skipped: 'login' must be one of {', '.join(LOGIN_TYPES)}")
+                continue
+            if login == "wordpress" and not username:
+                problems.append(f"Entry '{key}' skipped: login 'wordpress' needs 'username' and 'password' "
+                                "or 'password_env'")
+                continue
+            login_url = value.get("login_url")
+            if login_url is None and login == "wordpress":
+                p = urlparse(value["url"])
+                login_url = f"{p.scheme}://{p.netloc}/wp-login.php"
+            if login == "wordpress" and (not isinstance(login_url, str)
+                                         or not re.match(r"https?://[^\s/]+", login_url)):
+                problems.append(f"Entry '{key}' skipped: 'login_url' invalid (http:// or https:// expected)")
+                continue
             accept = value.get("accept_status", [])
             if not isinstance(accept, list) or not all(
                     isinstance(c, int) and not isinstance(c, bool) and 400 <= c <= 599 for c in accept):
@@ -566,7 +588,9 @@ def load_sites():
                 continue
             ignore, ignore_problems = parse_ignore(key, value.get("ignore"))
             problems += ignore_problems  # faulty rules are dropped, the site is still monitored
-            good[key] = {"url": value["url"], "auth": (username, password) if username else None,
+            credentials = (username, password) if username else None
+            good[key] = {"url": value["url"], "auth": credentials if login == "basic" else None,
+                         "form_login": (login, login_url, credentials) if login != "basic" else None,
                          "accept_status": set(accept), "ignore": ignore}
     if not good:
         return None, ["No valid URL in the site list"] + problems, []
@@ -585,15 +609,70 @@ def error_text(e):
     return f"Request failed: {type(e).__name__}: {e}"
 
 
-def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None):
+def wordpress_login(login_url, credentials, target_url):
+    """Log in through the WordPress login form. Return (session, None) or (None, error text).
+    The password is only sent to login_url and never appears in error texts."""
+    session = requests.Session()
+    session.headers.update({"User-Agent": UA, "Accept-Language": "de,en;q=0.7"})
+    login = urlparse(login_url)
+    # Open the target page first, like a browser: it usually redirects to the site's login page and sets
+    # its cookies. A direct GET of wp-login.php is avoided, because some sites drop such requests.
+    referer = target_url
+    try:
+        referer = session.get(target_url, timeout=TIMEOUT, allow_redirects=True).url
+    except Exception:
+        pass  # not needed for the login itself
+    try:
+        session.cookies.set("wordpress_test_cookie", "WP Cookie check", domain=login.hostname, path="/")
+        r = session.post(login_url, timeout=TIMEOUT, allow_redirects=True,
+                         headers={"Referer": referer, "Origin": f"{login.scheme}://{login.netloc}"},
+                         data={"log": credentials[0], "pwd": credentials[1], "rememberme": "forever",
+                               "wp-submit": "Log In", "redirect_to": target_url, "testcookie": "1"})
+        r.raise_for_status()
+    except Exception as e:
+        return None, "Login failed: " + error_text(e)
+    if not any(c.name.startswith(WP_LOGGED_IN_COOKIE) for c in session.cookies):
+        return None, "Login failed: username or password not accepted (no login cookie received)"
+    return session, None
+
+
+def get_login_session(form_login, target_url):
+    """Return (session, error text) for a login-form site; one login per login URL and user per run."""
+    login, login_url, credentials = form_login
+    key = (login_url, credentials[0])
+    if key not in LOGIN_SESSIONS:
+        progress("login... ", end="")  # shown in the progress line of the page that triggers the login
+        session, error = wordpress_login(login_url, credentials, target_url)
+        LOGIN_SESSIONS[key] = session if session is not None else error
+    cached = LOGIN_SESSIONS[key]
+    return (None, cached) if isinstance(cached, str) else (cached, None)
+
+
+def looks_like_login_page(requested_url, response):
+    """True if the request was redirected to a login page instead of the requested page."""
+    if not response.history:
+        return False
+    final = urlparse(response.url)
+    return final.path != urlparse(requested_url).path and ("login" in final.path.lower()
+                                                            or "login" in final.query.lower())
+
+
+def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None, form_login=None):
     """Return (lines, status); status: 'ok' | 'first' | 'changed' | 'error'.
     accept_status: HTTP error codes whose response content is used anyway (server misconfiguration).
-    ignore: per-site rules of lines to leave out when comparing (captures stay complete)."""
+    ignore: per-site rules of lines to leave out when comparing (captures stay complete).
+    form_login: (type, login URL, (username, password)) for sites behind a login form, else None."""
     folder = SITES_DIR / name
     notes = []
+    session = None
+    if form_login:
+        session, error = get_login_session(form_login, url)
+        if error:
+            return [error], "error"
     try:
-        r = requests.get(url, headers={"User-Agent": UA, "Accept-Language": "de,en;q=0.7"},
-                         timeout=TIMEOUT, allow_redirects=True, auth=auth)
+        getter = session.get if session is not None else requests.get
+        r = getter(url, headers={"User-Agent": UA, "Accept-Language": "de,en;q=0.7"},
+                   timeout=TIMEOUT, allow_redirects=True, auth=auth)
         if r.status_code in accept_status:
             notes.append(f"Note: server answered HTTP {r.status_code} {r.reason or ''}".rstrip()
                          + ", content used anyway")
@@ -603,6 +682,9 @@ def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None):
         return [error_text(e)], "error"
 
     # content checks
+    if looks_like_login_page(url, r):
+        return ["Login failed: redirected to the login page (login missing, not accepted or no access); "
+                "copy not overwritten"], "error"
     ct = r.headers.get("Content-Type", "")
     if ct and "html" not in ct.lower() and "xml" not in ct.lower():
         return [f"Content faulty: unexpected content type '{ct}' (not HTML)"], "error"
@@ -617,7 +699,7 @@ def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None):
     if not links:
         notes.append("Note: no links found")
     if IMAGE_HASH:
-        images = add_image_hashes(images, url, auth)
+        images = add_image_hashes(images, url, auth, session)
 
     content = build_file(text, images, links)
     try:
@@ -702,7 +784,7 @@ def main():
                 started = time.monotonic()
                 try:
                     lines, status = process_site(name, url, entry["auth"], now, entry["accept_status"],
-                                                 entry["ignore"])
+                                                 entry["ignore"], entry["form_login"])
                 except Exception as e:  # one site must not abort the run
                     lines, status = [f"Unexpected error: {type(e).__name__}: {e}"], "error"
                 progress(f"{progress_status(lines, status)} ({time.monotonic() - started:.1f} s)")

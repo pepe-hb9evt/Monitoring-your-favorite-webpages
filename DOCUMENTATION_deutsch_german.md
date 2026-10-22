@@ -27,7 +27,7 @@
 - Bildinhalt: Jedes `<img>` wird pro Lauf einmal heruntergeladen und mit einem Inhalts-Hash gespeichert (`URL | alt=… | sha1=…`). So wird auch ein Bild erkannt, das unter **derselben URL** ausgetauscht wurde. Siehe [Bilderkennung](#bilderkennung).
 - Wechselnde Bestandteile wie `?ver=`, Session-IDs, CSRF-Tokens und Cache-Buster werden aus URLs entfernt.
 - `javascript:`-Links werden ohne ihren Code gespeichert (er enthält oft zufällige Namen, z. B. zur Verschleierung von E-Mail-Adressen); verglichen wird nur der Link-Text.
-- Webseiten-Liste in einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic).
+- Webseiten-Liste in einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic oder WordPress-Anmeldeformular).
 - Fehlerhafte Einträge und nicht erreichbare Webseiten brechen den Lauf nicht ab; sie werden protokolliert, und die übrigen Webseiten werden trotzdem geprüft.
 - Report der letzten drei Tage, neuester Lauf zuoberst; ältere Läufe werden automatisch entfernt.
 - Jeder Lauf speichert eine Erfassungsdatei mit Datum und Uhrzeit im Namen; Erfassungen werden 48 Stunden aufbewahrt.
@@ -102,6 +102,25 @@ setx MONITOR_PW_INTERNAL "secret-password"
 }
 ```
 
+### Mit Anmeldeformular (WordPress)
+
+Viele Vereins- und Verbandsseiten nutzen statt HTTP Basic das normale WordPress-Anmeldeformular. Mit `"login": "wordpress"` meldet sich das Skript vor dem Abruf über dieses Formular an:
+
+```json
+"members-reports": {
+  "url": "https://example-eta.com/de/members/reports/",
+  "login": "wordpress",
+  "username": "my-user",
+  "password_env": "MONITOR_PW_ETA"
+}
+```
+
+- Das Anmeldeformular wird unter `<Webseite>/wp-login.php` gesucht. Verwendet die Webseite eine andere Adresse, `"login_url": "https://example-eta.com/wp-login.php"` ergänzen.
+- Jede Anmeldung (gleiche `login_url` und gleicher `username`) erfolgt einmal pro Lauf; weitere Seiten derselben Webseite verwenden sie mit. Auch die Bilder der Seite werden angemeldet abgerufen.
+- Wird die Anmeldung abgelehnt, steht im Report `Login failed: username or password not accepted`, und die Webseite zählt als Fehler. Wird eine Seite stattdessen auf eine Anmeldeseite umgeleitet (z. B. fehlende Berechtigung), steht `Login failed: redirected to the login page`. In beiden Fällen bleibt die letzte Kopie erhalten.
+- Dieselbe Prüfung gilt auch für Webseiten ohne `login`: Leitet eine Seite plötzlich auf eine Anmeldeseite um, wird das als Fehler gemeldet, statt die Anmeldeseite zu speichern.
+- Anmeldeformulare mit Captcha oder Zwei-Faktor-Anmeldung können nicht verwendet werden.
+
 ### Kommentare
 
 JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ignoriert:
@@ -119,6 +138,8 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 | `username` | nein | Nur zusammen mit `password` oder `password_env`. |
 | `password` | nein | Passwort im Klartext. |
 | `password_env` | nein | Name einer Umgebungsvariablen mit dem Passwort; hat Vorrang vor `password`. |
+| `login` | nein | `basic` (Standard, HTTP Basic) oder `wordpress` (WordPress-Anmeldeformular), siehe oben. |
+| `login_url` | nein | Adresse des Anmeldeformulars bei `wordpress`; Standard `<Webseite>/wp-login.php`. |
 | `accept_status` | nein | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten. |
 | `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, siehe unten. |
 
@@ -149,9 +170,9 @@ Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler,
 - Die Erfassungsdateien bleiben vollständig; die Regeln wirken nur beim Vergleich. Eine neue Regel wirkt deshalb auch auf bestehende Erfassungen, und wird sie entfernt, gilt wieder der volle Vergleich.
 - Fehlerhafte Regeln (falscher Typ, ungültiger regulärer Ausdruck, unbekannter Schlüssel) werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
-### Einschränkung: kein Session-Login
+### Einschränkung: andere Anmeldeformulare
 
-Anmeldeformulare auf der Seite selbst (Session-Login, z. B. DokuWiki oder WordPress) werden nicht unterstützt, nur HTTP Basic.
+Neben HTTP Basic wird nur das WordPress-Anmeldeformular unterstützt, andere Anmeldeformulare (z. B. DokuWiki) nicht.
 
 ## Einstellungen (`settings.json`)
 

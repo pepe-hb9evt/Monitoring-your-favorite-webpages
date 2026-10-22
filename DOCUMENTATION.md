@@ -21,7 +21,7 @@
 - Image content: every `<img>` is downloaded once per run and stored with a content hash (`URL | alt=… | sha1=…`), so an image replaced under the **same URL** is detected. See [Image detection](#image-detection).
 - Volatile noise such as `?ver=`, session IDs, CSRF tokens and cache busters is stripped from URLs.
 - `javascript:` links are stored without their code (it often contains random names, e.g. for e-mail obfuscation); only the link text is compared.
-- Site list in a JSON file, optionally with username and password (HTTP Basic).
+- Site list in a JSON file, optionally with username and password (HTTP Basic or WordPress login form).
 - Faulty entries and unreachable sites do not stop the run; they are logged and the remaining sites are still checked.
 - Report of the last three days, newest run first; older runs are removed automatically.
 - Every run stores a capture file with date and time in its name; captures are kept for 48 hours.
@@ -96,6 +96,25 @@ setx MONITOR_PW_INTERNAL "secret-password"
 }
 ```
 
+### With a login form (WordPress)
+
+Many club and association sites use the normal WordPress login form instead of HTTP Basic. With `"login": "wordpress"` the script signs in through that form before fetching the page:
+
+```json
+"members-reports": {
+  "url": "https://example-eta.com/de/members/reports/",
+  "login": "wordpress",
+  "username": "my-user",
+  "password_env": "MONITOR_PW_ETA"
+}
+```
+
+- The login form is found at `<site>/wp-login.php`. If the site uses another address, add `"login_url": "https://example-eta.com/wp-login.php"`.
+- Each login (same `login_url` and `username`) is done once per run; further pages of the same site reuse it. Images of the page are fetched logged in as well.
+- If the login is refused, the report shows `Login failed: username or password not accepted`, and the site counts as an error. If a page is redirected to a login page instead (e.g. missing access rights), the report shows `Login failed: redirected to the login page`. In both cases the last copy is kept.
+- The same check also applies to sites without `login`: a page that suddenly redirects to a login page is reported as an error instead of storing the login page.
+- Login forms with a captcha or two-factor authentication cannot be used.
+
 ### Comments
 
 JSON has no comments. Keys that start with `_` are therefore ignored:
@@ -113,6 +132,8 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 | `username` | no | Only together with `password` or `password_env`. |
 | `password` | no | Password in plain text. |
 | `password_env` | no | Name of an environment variable holding the password; takes precedence over `password`. |
+| `login` | no | `basic` (default, HTTP Basic) or `wordpress` (WordPress login form), see above. |
+| `login_url` | no | Address of the login form for `wordpress`; default `<site>/wp-login.php`. |
 | `accept_status` | no | List of HTTP error codes whose content is used anyway, see below. |
 | `ignore` | no | Lines left out when comparing, see below. |
 
@@ -143,9 +164,9 @@ Optional per site: lines that change all the time (solar banners, counters, "las
 - The capture files stay complete; the rules apply only when comparing. A new rule therefore also works for existing captures, and removing a rule restores the full comparison.
 - Faulty rules (wrong type, invalid regular expression, unknown key) are skipped and noted in the report; the site itself is still monitored.
 
-### Limitation: no session login
+### Limitation: other login forms
 
-Login forms on the page itself (session login, e.g. DokuWiki or WordPress) are not supported, only HTTP Basic.
+Besides HTTP Basic only the WordPress login form is supported. Other login forms (e.g. DokuWiki) are not.
 
 ## Settings (`settings.json`)
 

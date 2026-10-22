@@ -8,7 +8,7 @@ Ein kleines Python-Skript, das deine Lieblingswebseiten überwacht und Änderung
 
 ### Einschränkungen
 
-Die aktuelle Version meldet nur, was sich geändert hat, aber meldet dir nicht, wo in der Webseite sich diese Änderung befindet. Ebenso kann das Skript noch keine Webseiten bearbeiten, die vorgängig ein Login voraussetzen.
+Die aktuelle Version meldet nur, was sich geändert hat, aber meldet dir nicht, wo in der Webseite sich diese Änderung befindet. Webseiten mit Login werden mit HTTP Basic und mit dem WordPress-Anmeldeformular unterstützt.
 
 
 Das Skript ist ausgerichtet auf Vergleich von Texten. Bilder und Grafiken werden nicht bildlich verglichen sondern lediglich deren Hash-Wert wird verglichen. Somit wird nur erkannt, dass ein Bild oder Grafik geändert wurde, jedoch nicht was sich bildlich geändert hat.
@@ -25,7 +25,7 @@ English version: [README.md](README.md)
 
 - Vergleicht sichtbaren **Text**, **Bilder** und **Links** getrennt; Skripte, versteckte Elemente und wechselnde URL-Bestandteile werden ignoriert.
 - Erkennt ausgetauschte Bilder auch unter derselben URL (Inhalts-Hash).
-- Webseiten-Liste in einer JSON-Datei, optional mit HTTP-Basic-Login.
+- Webseiten-Liste in einer JSON-Datei, optional mit HTTP-Basic-Login oder WordPress-Anmeldeformular.
 - Fehlerhafte Einträge oder nicht erreichbare Webseiten brechen den Lauf nie ab.
 - `report-last-3-days.txt`: alle Läufe der letzten drei Tage, neuester zuoberst.
 - `daily-report.txt`: 24-Stunden-Vergleich, wird nach jedem Lauf neu geschrieben.

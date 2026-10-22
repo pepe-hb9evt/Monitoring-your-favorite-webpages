@@ -4,13 +4,13 @@
 
 A small Python script that monitors your favorite webpages and logs changes to the **visible** content (text, images, links). The script cycles through your list of webpages and, each time it runs, saves the current visible content for each webpage and compares it to the last saved version. It then writes to a log file that indicates, for each webpage on your list, whether changes were detected and, if so, exactly what has changed.
 
-The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
+The current version only reports what has changed, but does not tell you where on the webpage the change is located. Webpages that require a login are supported with HTTP Basic and with the WordPress login form.
 
 ### Limitations
 
 The script is designed to compare text. Images and graphics are not compared visually; instead, only their hash values are compared. As a result, the script only detects that an image or graphic has been modified, but not what specific visual changes have been made.
 
-The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
+The current version only reports what has changed, but does not tell you where on the webpage the change is located. Webpages that require a login are supported with HTTP Basic and with the WordPress login form.
 
 Developesd for Windows, but runs on any system with Python 3.
 
@@ -22,7 +22,7 @@ This README provides a concise overview. For the complete reference, consult **[
 
 - Compares visible **text**, **images** and **links** separately; scripts, hidden elements and volatile URL noise are ignored.
 - Detects replaced images even under the same URL (content hash).
-- Site list in a JSON file, optionally with HTTP Basic login.
+- Site list in a JSON file, optionally with HTTP Basic login or WordPress login form.
 - Faulty entries or unreachable sites never stop the run.
 - `report-last-3-days.txt`: all runs of the last three days, newest first.
 - `daily-report.txt`: 24-hour comparison, rewritten after every run.

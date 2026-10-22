@@ -32,6 +32,14 @@
     "password_env": "MONITOR_PW_INTERNAL"
   },
 
+  "_login_wordpress": "With the WordPress login form. 'login_url' is optional (default: <site>/wp-login.php).",
+  "example-login-wordpress": {
+    "url": "https://example.org/members/reports/",
+    "login": "wordpress",
+    "username": "my-user",
+    "password_env": "MONITOR_PW_MEMBERS"
+  },
+
   "_login_plain": "With HTTP Basic login, password directly in the file (only if the file is protected; never commit it to Git).",
   "example-login-plain": {
     "url": "https://example.org/private/",
