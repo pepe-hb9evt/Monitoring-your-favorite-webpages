@@ -1,4 +1,12 @@
-# Website Monitor – Dokumentation
+# Monitoring your favorite webpages
+
+**Überwache deine Lieblingswebseiten**
+
+
+
+# Dokumentation
+
+
 
 ← Zurück zum [README](README_deutsch_german.md) · English version: [DOCUMENTATION.md](DOCUMENTATION.md)
 

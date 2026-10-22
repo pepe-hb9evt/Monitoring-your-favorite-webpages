@@ -1,8 +1,12 @@
-# Website Monitor
+# Monitoring your favorite webpages
 
-A small Python script that fetches a list of web pages, stores their **visible** content (text, images, links) and compares it with the previous state. Changes are written to easy-to-read text reports. Designed for Windows, works on any system with Python 3.
+A small Python script that monitors your favorite websites and logs changes to the **visible** content (text, images, links). The script cycles through your list of websites and, each time it runs, saves the current visible content for each website and compares it to the last saved version. It then writes to a log file that indicates, for each website on your list, whether changes were detected and, if so, exactly what has changed.
 
-Full reference: **[DOCUMENTATION.md](DOCUMENTATION.md)**
+The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process websites that require a login.
+
+Developed for Windows, but runs on any system with Python 3.
+
+This README provides a concise overview. For the complete reference, consult **[DOCUMENTATION.md](DOCUMENTATION.md)**
 
 ## Features
 

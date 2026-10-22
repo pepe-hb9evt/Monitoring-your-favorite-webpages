@@ -1,4 +1,6 @@
-# Website Monitor – Documentation
+# Monitoring your favorite webpages
+
+# Documentation
 
 ← Back to [README](README.md)
 

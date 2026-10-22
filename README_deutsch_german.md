@@ -1,8 +1,14 @@
-# Website Monitor
+# Monitoring your favorite webpages
 
-Ein kleines Python-Skript, das eine Liste von Webseiten abruft, deren **sichtbaren** Inhalt (Text, Bilder, Links) speichert und mit dem vorherigen Stand vergleicht. Änderungen werden in leicht lesbare Text-Reports geschrieben. Entwickelt für Windows, läuft aber auf jedem System mit Python 3.
+**Überwache deine Lieblingswebseiten**
 
-Vollständige Referenz: **[DOCUMENTATION_deutsch_german.md](DOCUMENTATION_deutsch_german.md)**
+Ein kleines Python-Skript, das deine Lieblingswebseiten überwacht und Änderungen beim **sichtbaren** Inhalt (Text, Bilder, Links) protokolliert. Das Skript arbeitet deine Liste von Webseiten ab undspeichert bei jedem Aufruf für jede Webseite den aktuellen sichtbaren Inhalt und vergleicht ihn mit der letzten Speicherung. Danach wird eine Protokolldatei beschrieben, in der für jede Webseite deiner Liste, ob Änderungen festgestellt worden sind und wenn ja, was sich konkret geändert hat.
+
+Die aktuelle Version meldet nur, was sich geändert hat, aber meldet dir nicht, wo in der Webseite sich diese Änderung befindet. Ebenso kann das Skript noch keine Webseiten bearbeiten, die vorgängig ein Login voraussetzen.
+
+Entwickelt für Windows, läuft aber auf jedem System mit Python 3.
+
+Dieses README gibt einen kompakten Überblick. Für die vollständige Referenz konsultiere  **[DOCUMENTATION_deutsch_german.md](DOCUMENTATION_deutsch_german.md)**
 
 English version: [README.md](README.md)
 
