@@ -25,8 +25,8 @@ English version: [README.md](README.md)
 
 - Vergleicht sichtbaren **Text**, **Bilder** und **Links** getrennt; Skripte, versteckte Elemente und wechselnde URL-Bestandteile werden ignoriert.
 - Erkennt ausgetauschte Bilder auch unter derselben URL (Inhalts-Hash).
-- Website-Liste in einer JSON-Datei, optional mit HTTP-Basic-Login.
-- Fehlerhafte Einträge oder nicht erreichbare Websites brechen den Lauf nie ab.
+- Webseiten-Liste in einer JSON-Datei, optional mit HTTP-Basic-Login.
+- Fehlerhafte Einträge oder nicht erreichbare Webseiten brechen den Lauf nie ab.
 - `report-last-3-days.txt`: alle Läufe der letzten drei Tage, neuester zuoberst.
 - `daily-report.txt`: 24-Stunden-Vergleich, wird nach jedem Lauf neu geschrieben.
 - Optionale `settings.json` für Dateinamen, Aufbewahrung, Timeout, User-Agent, …
@@ -38,14 +38,14 @@ English version: [README.md](README.md)
 
 ## Installation
 
-1. Die Dateien in einen Projektordner kopieren, z. B. `C:\Tools\website-monitor\`. Alle Daten werden in diesem Ordner gespeichert.
-2. `websites.example.json` nach `websites.json` kopieren und die eigenen Websites eintragen.
+1. Die Dateien in einen Projektordner kopieren, z. B. `C:\Tools\webpages-monitor\`. Alle Daten werden in diesem Ordner gespeichert.
+2. `webpages.example.json` nach `webpages.json` kopieren und die eigenen Webseiten eintragen.
 3. Optional: `settings.example.json` nach `settings.json` kopieren und Werte anpassen.
-4. Einmal testen: `python website_monitor.py`
+4. Einmal testen: `python webpages_monitor.py`
 
 Der erste Lauf speichert nur einen Ausgangsstand; verglichen wird ab dem zweiten Lauf.
 
-## Website-Liste (`websites.json`)
+## Webseiten-Liste (`webpages.json`)
 
 ```json
 {
@@ -58,12 +58,12 @@ Der erste Lauf speichert nur einen Ausgangsstand; verglichen wird ab dem zweiten
 }
 ```
 
-Alle Formate, Regeln und Optionen: [DOCUMENTATION_deutsch_german.md → Website-Liste](DOCUMENTATION_deutsch_german.md#website-liste-websitesjson).
+Alle Formate, Regeln und Optionen: [DOCUMENTATION_deutsch_german.md → Webseiten-Liste](DOCUMENTATION_deutsch_german.md#webseiten-liste-webpagesjson).
 
 ## Geplante Läufe (Windows)
 
 ```
-schtasks /create /tn "Website Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
+schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
 ```
 
 Für weitere Uhrzeiten wiederholen. Einrichtung über die Oberfläche und Hinweise: [DOCUMENTATION_deutsch_german.md → Geplante Läufe](DOCUMENTATION_deutsch_german.md#geplante-läufe-unter-windows-aufgabenplanung).
@@ -73,15 +73,15 @@ Für weitere Uhrzeiten wiederholen. Einrichtung über die Oberfläche und Hinwei
 ```
 report-last-3-days.txt                         Report der letzten drei Tage
 daily-report.txt                               24-Stunden-Vergleich
-monitored-websites/<shortname>/captured_*.txt  Erfassungen, 48 Stunden aufbewahrt
-monitored-websites/<shortname>/archive/*.txt   eine Erfassung pro Tag, dauerhaft
+monitored-webpages/<shortname>/captured_*.txt  Erfassungen, 48 Stunden aufbewahrt
+monitored-webpages/<shortname>/archive/*.txt   eine Erfassung pro Tag, dauerhaft
 ```
 
 Aufbau der Reports und Exit-Codes: [DOCUMENTATION_deutsch_german.md → Ausgabe](DOCUMENTATION_deutsch_german.md#ausgabe).
 
 ## Sicherheit
 
-- `websites.json` kann Passwörter enthalten und ist in `.gitignore` ausgeschlossen – nie committen.
+- `webpages.json` kann Passwörter enthalten und ist in `.gitignore` ausgeschlossen – nie committen.
 - `password_env` gegenüber `password` bevorzugen. Passwörter erscheinen nie in den Reports.
 
 ## Lizenz
