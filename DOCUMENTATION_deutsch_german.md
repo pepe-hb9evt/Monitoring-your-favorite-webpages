@@ -13,7 +13,7 @@
 ## Inhalt
 
 - [So funktioniert es](#so-funktioniert-es)
-- [Website-Liste (`websites.json`)](#website-liste-websitesjson)
+- [Webseiten-Liste (`webpages.json`)](#webseiten-liste-webpagesjson)
 - [Einstellungen (`settings.json`)](#einstellungen-settingsjson)
 - [Geplante Läufe unter Windows (Aufgabenplanung)](#geplante-läufe-unter-windows-aufgabenplanung)
 - [Ausgabe](#ausgabe)
@@ -27,8 +27,8 @@
 - Bildinhalt: Jedes `<img>` wird pro Lauf einmal heruntergeladen und mit einem Inhalts-Hash gespeichert (`URL | alt=… | sha1=…`). So wird auch ein Bild erkannt, das unter **derselben URL** ausgetauscht wurde. Siehe [Bilderkennung](#bilderkennung).
 - Wechselnde Bestandteile wie `?ver=`, Session-IDs, CSRF-Tokens und Cache-Buster werden aus URLs entfernt.
 - `javascript:`-Links werden ohne ihren Code gespeichert (er enthält oft zufällige Namen, z. B. zur Verschleierung von E-Mail-Adressen); verglichen wird nur der Link-Text.
-- Website-Liste in einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic).
-- Fehlerhafte Einträge und nicht erreichbare Websites brechen den Lauf nicht ab; sie werden protokolliert, und die übrigen Websites werden trotzdem geprüft.
+- Webseiten-Liste in einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic).
+- Fehlerhafte Einträge und nicht erreichbare Webseiten brechen den Lauf nicht ab; sie werden protokolliert, und die übrigen Webseiten werden trotzdem geprüft.
 - Report der letzten drei Tage, neuester Lauf zuoberst; ältere Läufe werden automatisch entfernt.
 - Jeder Lauf speichert eine Erfassungsdatei mit Datum und Uhrzeit im Namen; Erfassungen werden 48 Stunden aufbewahrt.
 - Daily Report `daily-report.txt`: wird nach jedem Lauf neu geschrieben; vergleicht die neueste Erfassung mit der neuesten Erfassung, die mindestens 24 Stunden alt ist.
@@ -60,9 +60,9 @@ Vergleich: Die Zeilen werden wie Text verglichen. Fehlt auf einer Seite der Hash
 
 Nicht erkannt werden: CSS-Hintergrundbilder, `<picture><source>`, `<canvas>` und per JavaScript geladene Bilder. Bilder, die sich bei jedem Abruf ändern (Webcams, Captchas, zufällige Banner), werden bei jedem Lauf gemeldet; in diesem Fall `"image_hash": false` setzen.
 
-## Website-Liste (`websites.json`)
+## Webseiten-Liste (`webpages.json`)
 
-Die Datei liegt im Projektordner und wird bei **jedem Lauf** neu eingelesen. Sie ist ein JSON-Objekt, das Kurznamen den Websites zuordnet. Eine kommentierte Vorlage mit allen Formaten ist [`websites.example.json`](websites.example.json).
+Die Datei liegt im Projektordner und wird bei **jedem Lauf** neu eingelesen. Sie ist ein JSON-Objekt, das Kurznamen den Webseiten zuordnet. Eine kommentierte Vorlage mit allen Formaten ist [`webpages.example.json`](webpages.example.json).
 
 ### Kurzform
 
@@ -114,17 +114,40 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 
 | Feld | Pflicht | Beschreibung |
 |---|---|---|
-| Kurzname (Schlüssel) | ja | Buchstaben, Ziffern, `.` `_` `-`. Gleichzeitig der Name des Datenordners in `monitored-websites/`. Ein neuer Name beginnt eine neue Historie. |
+| Kurzname (Schlüssel) | ja | Buchstaben, Ziffern, `.` `_` `-`. Gleichzeitig der Name des Datenordners in `monitored-webpages/`. Ein neuer Name beginnt eine neue Historie. |
 | `url` | ja | Muss mit `http://` oder `https://` beginnen. |
 | `username` | nein | Nur zusammen mit `password` oder `password_env`. |
 | `password` | nein | Passwort im Klartext. |
 | `password_env` | nein | Name einer Umgebungsvariablen mit dem Passwort; hat Vorrang vor `password`. |
+| `accept_status` | nein | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten. |
+| `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, siehe unten. |
 
-Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Website, endet der Lauf kontrolliert mit einem Protokolleintrag.
+Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
 
 ### `accept_status`
 
-Optional pro Website: `"accept_status": [500]` verwendet den Inhalt auch dann, wenn der Server mit einem dieser HTTP-Fehlercodes antwortet (für Server, die eine normale Seite mit falschem Statuscode ausliefern). Im Report erscheint dann ein Hinweis. Nur für Websites verwenden, bei denen das bekannt ist; sonst würden echte Fehlerseiten als Inhalt gespeichert.
+Optional pro Webseite: `"accept_status": [500]` verwendet den Inhalt auch dann, wenn der Server mit einem dieser HTTP-Fehlercodes antwortet (für Server, die eine normale Seite mit falschem Statuscode ausliefern). Im Report erscheint dann ein Hinweis. Nur für Webseiten verwenden, bei denen das bekannt ist; sonst würden echte Fehlerseiten als Inhalt gespeichert.
+
+### `ignore`
+
+Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler, „Letzte Aktualisierung“), lassen sich vom Vergleich ausnehmen, getrennt nach Abschnitt der Erfassungsdatei:
+
+```json
+"hb9cl": {
+  "url": "https://www.hb9.cl/",
+  "ignore": {
+    "images": ["hamqsl.com/solarbc.php"],
+    "text": ["re:^Letzte Aktualisierung:"],
+    "links": ["/kalender?"]
+  }
+}
+```
+
+- `text`, `images`, `links` sind optional; jeder ist eine Liste von Mustern.
+- Ein Muster ist eine Teilzeichenkette (Gross-/Kleinschreibung egal). Mit dem Präfix `re:` ist es ein regulärer Ausdruck (Python-Syntax, Gross-/Kleinschreibung egal, trifft irgendwo in der Zeile; mit `^`/`$` verankern).
+- Eine passende Zeile wird vor dem Vergleich aus **beiden** Erfassungen entfernt; sie erscheint also weder als „removed“ noch als „added“. Hat sich sonst nichts geändert, gilt die Webseite als unverändert (auch im Daily Report).
+- Die Erfassungsdateien bleiben vollständig; die Regeln wirken nur beim Vergleich. Eine neue Regel wirkt deshalb auch auf bestehende Erfassungen, und wird sie entfernt, gilt wieder der volle Vergleich.
+- Fehlerhafte Regeln (falscher Typ, ungültiger regulärer Ausdruck, unbekannter Schlüssel) werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
 ### Einschränkung: kein Session-Login
 
@@ -136,13 +159,13 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 
 | Schlüssel | Standard | Bedeutung |
 |---|---|---|
-| `websites_file` | `websites.json` | Name der Website-Liste im Projektordner |
+| `webpages_file` | `webpages.json` | Name der Webseiten-Liste im Projektordner |
 | `report_file` | `report-last-3-days.txt` | Name der Report-Datei im Projektordner |
 | `daily_report_file` | `daily-report.txt` | Name des Daily Reports (24-Stunden-Vergleich) |
 | `daily_compare_hours` | `24` | Mindestalter der Vergleichserfassung für den Daily Report |
 | `capture_keep_hours` | `48` | Wie lange Erfassungsdateien aufbewahrt werden (Stunden) |
 | `report_days` | `3` | Wie viele Tage Läufe im Report bleiben |
-| `max_change_lines` | `15` | Änderungszeilen pro Website im Report |
+| `max_change_lines` | `15` | Änderungszeilen pro Webseite im Report |
 | `timeout_seconds` | `45` | Zeitlimit pro Abruf |
 | `user_agent` | Chrome-ähnliche Zeichenkette | Browser-Kennung, die bei jedem Abruf gesendet wird |
 | `ignored_url_params` | `ver`, `sid`, … | URL-Parameter, die beim Vergleich ignoriert werden |
@@ -164,13 +187,13 @@ Auf englischsprachigen Windows-Systemen heisst die Aufgabenplanung „Task Sched
 In einer Eingabeaufforderung:
 
 ```
-schtasks /create /tn "Website Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 1100" /sc daily /st 11:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 1700" /sc daily /st 17:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 2300" /sc daily /st 23:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
+schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 1100" /sc daily /st 11:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 1700" /sc daily /st 17:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 2300" /sc daily /st 23:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
 ```
 
-Testen: `schtasks /run /tn "Website Monitor 0600"`. Löschen: `schtasks /delete /tn "Website Monitor 0600" /f`.
+Testen: `schtasks /run /tn "Webpages Monitor 0600"`. Löschen: `schtasks /delete /tn "Webpages Monitor 0600" /f`.
 
 ### Grafische Oberfläche
 
@@ -178,7 +201,7 @@ Testen: `schtasks /run /tn "Website Monitor 0600"`. Löschen: `schtasks /delete 
 2. *Trigger*: täglich; mit *Aufgabe erstellen* lassen sich mehrere Trigger für die vier Uhrzeiten anlegen.
 3. *Aktion*: *Programm starten*
    - Programm/Skript: vollständiger Pfad zu `python.exe`
-   - Argumente: `website_monitor.py`
+   - Argumente: `webpages_monitor.py`
    - Starten in: der Projektordner
 4. Unter *Einstellungen*: *Aufgabe so schnell wie möglich nach einem verpassten Start ausführen* aktivieren.
 
@@ -191,16 +214,16 @@ Testen: `schtasks /run /tn "Website Monitor 0600"`. Löschen: `schtasks /delete 
 
 ### Dateien
 
-Alles liegt im Projektordner (der Ordner `monitored-websites` wird bei Bedarf automatisch angelegt):
+Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf automatisch angelegt):
 
 ```
-website_monitor.py
-websites.json                 (eigene Website-Liste, nicht in Git)
+webpages_monitor.py
+webpages.json                 (eigene Webseiten-Liste, nicht in Git)
 settings.json                 (optional, nicht in Git)
 report-last-3-days.txt        Report der letzten drei Tage
 daily-report.txt              24-Stunden-Vergleich (bei jedem Lauf neu geschrieben)
-monitored-websites/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt  Inhalt eines Laufs (Text, IMAGES, LINKS), 48 Stunden aufbewahrt
-monitored-websites/<shortname>/archive/<date>.txt               letzte Erfassung dieses Tages, dauerhaft aufbewahrt
+monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt  Inhalt eines Laufs (Text, IMAGES, LINKS), 48 Stunden aufbewahrt
+monitored-webpages/<shortname>/archive/<date>.txt               letzte Erfassung dieses Tages, dauerhaft aufbewahrt
 ```
 
 ### Aufbau von `report-last-3-days.txt`
@@ -218,41 +241,43 @@ https://example-delta.com/offline/
 ERROR: URL not reachable: HTTP error 404 Not Found
 
 
-Changes were detected on the following websites:
+Changes were detected on the following webpages:
 
 https://example-gamma.com/doku.php
-Changed (since 6h ago)
+Changed
  [Text]
   removed: old text
   added:   new text
 
 
-The following websites are unchanged:
+The following webpages are unchanged:
 -  https://example-alpha.com/de/news/
 -  https://example-beta.com/dt/
 
 Run finished: 4 sites processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
 
-Neuester Lauf zuoberst; Läufe, die älter als drei Tage sind, werden beim nächsten Lauf entfernt. Der Report zeigt höchstens 15 Änderungszeilen pro Website.
+Neuester Lauf zuoberst; Läufe, die älter als drei Tage sind, werden beim nächsten Lauf entfernt. Der Report zeigt höchstens 15 Änderungszeilen pro Webseite.
 
-Jeder Lauf vergleicht die neueste mit der zweitneuesten Erfassung einer Website; bei geänderten Websites gibt `(since 6h ago)` das Alter dieser Erfassung in ganzen Stunden an (ab 24 Stunden entfällt die Angabe). Jeder Lauf beginnt mit dem Abstand zum vorherigen Lauf (`Previous run: 47 minutes ago`; bis 99 Minuten in Minuten, ab 100 Minuten in Stunden, gerundet).
+Jeder Lauf vergleicht die neueste mit der zweitneuesten Erfassung einer Webseite. Jeder Lauf beginnt mit dem Abstand zum vorherigen Lauf (`Previous run: 47 minutes ago`; bis 99 Minuten in Minuten, ab 100 Minuten in Stunden, gerundet).
 
 ### Erfassungsdateien
 
-Jeder erfolgreiche Abruf schreibt `captured_YYYY-MM-DD_HHHMM.txt` (z. B. `captured_2026-10-21_11H00.txt`). Erfassungen, die älter als 48 Stunden sind, werden beim nächsten Lauf gelöscht; die beiden neuesten Erfassungen einer Website bleiben immer erhalten. Das Archiv bewahrt dauerhaft eine Kopie pro Tag auf. Beim ersten Lauf nach dem Update wird eine vorhandene `current.txt` zur Erfassungsdatei (Uhrzeit aus dem Dateidatum), und `previous.txt` wird gelöscht.
+Jeder erfolgreiche Abruf schreibt `captured_YYYY-MM-DD_HHHMM.txt` (z. B. `captured_2026-10-21_11H00.txt`). Erfassungen, die älter als 48 Stunden sind, werden beim nächsten Lauf gelöscht; die beiden neuesten Erfassungen einer Webseite bleiben immer erhalten. Das Archiv bewahrt dauerhaft eine Kopie pro Tag auf. Beim ersten Lauf nach dem Update wird eine vorhandene `current.txt` zur Erfassungsdatei (Uhrzeit aus dem Dateidatum), und `previous.txt` wird gelöscht.
+
+Frühere Namen (Versionen vor der Umbenennung auf „webpages“): Beim ersten Lauf wird der Ordner `monitored-websites` zu `monitored-webpages` und `websites.json` zu `webpages.json` umbenannt; die Historie bleibt erhalten, und im Report erscheint ein Hinweis. Der Einstellungsschlüssel `websites_file` wird weiterhin als `webpages_file` akzeptiert. Geplante Aufgaben müssen auf `webpages_monitor.py` umgestellt werden.
 
 ### Aufbau von `daily-report.txt`
 
-Wird nach jedem Lauf neu geschrieben, im gleichen Aufbau wie ein Lauf des Reports, mit der Kopfzeile `=== Daily report YYYY-MM-DD HH:MM ===`. Für jede Website wird die neueste Erfassung mit der neuesten Erfassung verglichen, die mindestens 24 Stunden alt ist; gibt es keine solche, mit der ältesten vorhandenen. Die erste Zeile nennt das Alter der Vergleichserfassung, z. B. `Newest capture compared with the capture from 24 hours ago.`; unter 23 Stunden wird `(oldest capture available)` ergänzt. Geänderte Websites zeigen das Alter der Vergleichserfassung in ganzen Stunden (`since 6h ago`; 11:29 ergibt 11h, 11:30 ergibt 12h); ab 24 Stunden entfällt die Angabe. Websites, die im aktuellen Lauf fehlgeschlagen sind, stehen unter „No comparison possible“.
+Wird nach jedem Lauf neu geschrieben, im gleichen Aufbau wie ein Lauf des Reports, mit der Kopfzeile `=== Daily report YYYY-MM-DD HH:MM ===`. Für jede Webseite wird die neueste Erfassung mit der neuesten Erfassung verglichen, die mindestens 24 Stunden alt ist; gibt es keine solche, mit der ältesten vorhandenen. Die erste Zeile nennt das Alter der Vergleichserfassung, z. B. `Newest capture compared with the capture from 24 hours ago.`; unter 23 Stunden wird `(oldest capture available)` ergänzt. Webseiten, die im aktuellen Lauf fehlgeschlagen sind, stehen unter „No comparison possible“.
 
 ### Exit-Codes
 
 | Code | Bedeutung |
 |---|---|
 | 0 | Alles unverändert |
-| 1 | Änderung, Fehler bei einer Website oder Fehler in einem Listen- oder Einstellungseintrag |
-| 2 | Website-Liste unbrauchbar oder Programmfehler |
+| 1 | Änderung, Fehler bei einer Webseite oder Fehler in einem Listen- oder Einstellungseintrag |
+| 2 | Webseiten-Liste unbrauchbar oder Programmfehler |
 
 ## Optional: Benachrichtigung mit Claude
 

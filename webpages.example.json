@@ -1,5 +1,5 @@
 {
-  "_comment": "Template for websites.json. Copy to websites.json and adjust. Keys starting with _ are ignored.",
+  "_comment": "Template for webpages.json. Copy to webpages.json and adjust. Keys starting with _ are ignored.",
 
   "_short_form": "Short name -> URL. The short name is also the name of the data folder (allowed: letters, digits, dot, underscore, hyphen).",
   "example-public": "https://example.org/news/",
@@ -13,6 +13,16 @@
   "example-wrong-status": {
     "url": "https://example.org/club/",
     "accept_status": [500]
+  },
+
+  "_ignore": "Lines left out when comparing, per section (text, images, links). Pattern = case-insensitive substring; prefix 're:' = regular expression.",
+  "example-ignore": {
+    "url": "https://example.org/radio/",
+    "ignore": {
+      "images": ["hamqsl.com/solarbc.php"],
+      "text": ["re:^Last update:"],
+      "links": ["/calendar?"]
+    }
   },
 
   "_login_env": "With HTTP Basic login. The password is stored in an environment variable (recommended).",

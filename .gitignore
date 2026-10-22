@@ -1,5 +1,5 @@
 # Ignore everything (/*) except the project files (allow-list with !/... ).
-# This keeps the real site list (websites.json, possibly with credentials), settings.json,
+# This keeps the real site list (webpages.json, possibly with credentials), settings.json,
 # the report and the per-site data folders (copies, archive) out of Git.
 
 # Ignore everything ...
@@ -13,10 +13,9 @@
 !/DOCUMENTATION.md
 !/DOCUMENTATION_deutsch_german.md
 !/requirements.txt
-!/website_monitor.py
-!/websites.example.json
+!/webpages_monitor.py
+!/webpages.example.json
 !/settings.example.json
-!/test.md
 
 # Python
 __pycache__/

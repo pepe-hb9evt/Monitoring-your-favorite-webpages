@@ -7,7 +7,7 @@
 ## Contents
 
 - [How it works](#how-it-works)
-- [Site list (`websites.json`)](#site-list-websitesjson)
+- [Site list (`webpages.json`)](#site-list-webpagesjson)
 - [Settings (`settings.json`)](#settings-settingsjson)
 - [Scheduled runs on Windows (Task Scheduler)](#scheduled-runs-on-windows-task-scheduler)
 - [Output](#output)
@@ -54,9 +54,9 @@ Comparison: lines are compared like text. If the hash of an image (same URL and 
 
 Not detected: CSS background images, `<picture><source>`, `<canvas>` and images loaded by JavaScript. Images that change on every request (webcams, captchas, random banners) are reported on every run; set `"image_hash": false` if this is a problem.
 
-## Site list (`websites.json`)
+## Site list (`webpages.json`)
 
-The file lives in the project folder and is re-read on **every run**. It is a JSON object that maps short names to sites. A commented template with all formats is in [`websites.example.json`](websites.example.json).
+The file lives in the project folder and is re-read on **every run**. It is a JSON object that maps short names to sites. A commented template with all formats is in [`webpages.example.json`](webpages.example.json).
 
 ### Short form
 
@@ -108,17 +108,40 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 
 | Field | Required | Description |
 |---|---|---|
-| Short name (key) | yes | Letters, digits, `.` `_` `-`. Also the name of the data folder inside `monitored-websites/`. A new name starts a new history. |
+| Short name (key) | yes | Letters, digits, `.` `_` `-`. Also the name of the data folder inside `monitored-webpages/`. A new name starts a new history. |
 | `url` | yes | Must start with `http://` or `https://`. |
 | `username` | no | Only together with `password` or `password_env`. |
 | `password` | no | Password in plain text. |
 | `password_env` | no | Name of an environment variable holding the password; takes precedence over `password`. |
+| `accept_status` | no | List of HTTP error codes whose content is used anyway, see below. |
+| `ignore` | no | Lines left out when comparing, see below. |
 
 A faulty entry is skipped and noted in the report. If the file is missing, is not valid JSON, or contains not a single valid site, the run ends in a controlled way with a log entry.
 
 ### `accept_status`
 
 Optional per site: `"accept_status": [500]` uses the content even if the server answers with one of these HTTP error codes (for servers that deliver a normal page with a wrong status code). The report then shows a note. Use it only for sites where this is known; otherwise real error pages would be stored as content.
+
+### `ignore`
+
+Optional per site: lines that change all the time (solar banners, counters, "last update" lines) can be excluded from the comparison, separately for each section of a capture file:
+
+```json
+"hb9cl": {
+  "url": "https://www.hb9.cl/",
+  "ignore": {
+    "images": ["hamqsl.com/solarbc.php"],
+    "text": ["re:^Last update:"],
+    "links": ["/calendar?"]
+  }
+}
+```
+
+- `text`, `images`, `links` are optional; each is a list of patterns.
+- A pattern is a substring (case-insensitive). With the prefix `re:` it is a regular expression (Python syntax, case-insensitive, matches anywhere in the line; use `^`/`$` to anchor).
+- A matching line is removed from **both** captures before comparing, so it shows up neither as "removed" nor as "added". If nothing else changed, the site is reported as unchanged (also in the daily report).
+- The capture files stay complete; the rules apply only when comparing. A new rule therefore also works for existing captures, and removing a rule restores the full comparison.
+- Faulty rules (wrong type, invalid regular expression, unknown key) are skipped and noted in the report; the site itself is still monitored.
 
 ### Limitation: no session login
 
@@ -130,7 +153,7 @@ Optional. Located next to the script; see [`settings.example.json`](settings.exa
 
 | Key | Default | Meaning |
 |---|---|---|
-| `websites_file` | `websites.json` | Name of the site list in the project folder |
+| `webpages_file` | `webpages.json` | Name of the site list in the project folder |
 | `report_file` | `report-last-3-days.txt` | Name of the report file in the project folder |
 | `daily_report_file` | `daily-report.txt` | Name of the daily report (24-hour comparison) |
 | `daily_compare_hours` | `24` | Minimum age of the reference capture for the daily report |
@@ -158,13 +181,13 @@ On Windows systems with German language the 'Task Scheduler' is named 'Aufgabenp
 In a command prompt:
 
 ```
-schtasks /create /tn "Website Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 1100" /sc daily /st 11:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 1700" /sc daily /st 17:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
-schtasks /create /tn "Website Monitor 2300" /sc daily /st 23:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
+schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 1100" /sc daily /st 11:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 1700" /sc daily /st 17:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+schtasks /create /tn "Webpages Monitor 2300" /sc daily /st 23:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
 ```
 
-Test: `schtasks /run /tn "Website Monitor 0600"`. Delete: `schtasks /delete /tn "Website Monitor 0600" /f`.
+Test: `schtasks /run /tn "Webpages Monitor 0600"`. Delete: `schtasks /delete /tn "Webpages Monitor 0600" /f`.
 
 ### Graphical interface
 
@@ -172,7 +195,7 @@ Test: `schtasks /run /tn "Website Monitor 0600"`. Delete: `schtasks /delete /tn 
 2. *Trigger*: daily; with *Create Task* you can add several triggers for the four times.
 3. *Action*: *Start a program*
    - Program/script: full path to `python.exe`
-   - Arguments: `website_monitor.py`
+   - Arguments: `webpages_monitor.py`
    - Start in: the project folder
 4. Under *Settings*: enable *Run task as soon as possible after a scheduled start is missed*.
 
@@ -185,16 +208,16 @@ Test: `schtasks /run /tn "Website Monitor 0600"`. Delete: `schtasks /delete /tn 
 
 ### Files
 
-Everything lives in the project folder (the folder `monitored-websites` is created automatically if missing):
+Everything lives in the project folder (the folder `monitored-webpages` is created automatically if missing):
 
 ```
-website_monitor.py
-websites.json                 (your own site list, not in Git)
+webpages_monitor.py
+webpages.json                 (your own site list, not in Git)
 settings.json                 (optional, not in Git)
 report-last-3-days.txt        report of the last three days
 daily-report.txt              24-hour comparison (rewritten on every run)
-monitored-websites/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt  content of one run (text, IMAGES, LINKS), kept 48 hours
-monitored-websites/<shortname>/archive/<date>.txt               last capture of that day, kept permanently
+monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt  content of one run (text, IMAGES, LINKS), kept 48 hours
+monitored-webpages/<shortname>/archive/<date>.txt               last capture of that day, kept permanently
 ```
 
 ### Layout of `report-last-3-days.txt`
@@ -210,16 +233,16 @@ https://example-delta.com/offline/
 ERROR: URL not reachable: HTTP error 404 Not Found
 
 
-Changes were detected on the following websites:
+Changes were detected on the following webpages:
 
 https://example-gamma.com/doku.php
-Changed (since 6h ago)
+Changed
  [Text]
   removed: old text
   added:   new text
 
 
-The following websites are unchanged:
+The following webpages are unchanged:
 -  https://example-alpha.com/de/news/
 -  https://example-beta.com/dt/
 
@@ -228,15 +251,17 @@ Run finished: 4 sites processed, 1 changed, 1 errors, 0 first runs, 0 list/setti
 
 Newest run first; runs older than three days are removed on the next run. The report shows at most 15 change lines per site.
 
-Each run compares the newest capture with the second newest capture of a site; for changed sites `(since 6h ago)` gives the age of that capture in whole hours (omitted from 24 hours on). Each run starts with the time since the previous run (`Previous run: 47 minutes ago`; up to 99 minutes in minutes, from 100 minutes on in hours, rounded).
+Each run compares the newest capture with the second newest capture of a site. Each run starts with the time since the previous run (`Previous run: 47 minutes ago`; up to 99 minutes in minutes, from 100 minutes on in hours, rounded).
 
 ### Capture files
 
 Every successful fetch writes `captured_YYYY-MM-DD_HHHMM.txt` (e.g. `captured_2026-10-21_11H00.txt`). Captures older than 48 hours are deleted on the next run; the two newest captures of a site are always kept. The archive keeps one copy per day permanently. On the first run after the update, an existing `current.txt` becomes a capture file (time taken from the file date) and `previous.txt` is deleted.
 
+Former names (versions before the renaming to "webpages"): on the first run the folder `monitored-websites` is renamed to `monitored-webpages` and `websites.json` to `webpages.json`, so the history is kept; the report shows a note. The settings key `websites_file` is still accepted as `webpages_file`. Scheduled tasks must be changed to start `webpages_monitor.py`.
+
 ### Layout of `daily-report.txt`
 
-Rewritten after every run, in the same layout as a run of the report, with the header `=== Daily report YYYY-MM-DD HH:MM ===`. For each site the newest capture is compared with the newest capture that is at least 24 hours old; if there is none, with the oldest capture available. The first line names the age of the compared capture, e.g. `Newest capture compared with the capture from 24 hours ago.`; below 23 hours `(oldest capture available)` is added. Changed sites show the age of the reference capture in whole hours (`since 6h ago`; 11:29 becomes 11h, 11:30 becomes 12h); from 24 hours on the remark is omitted. Sites that failed in the current run are listed under "No comparison possible".
+Rewritten after every run, in the same layout as a run of the report, with the header `=== Daily report YYYY-MM-DD HH:MM ===`. For each site the newest capture is compared with the newest capture that is at least 24 hours old; if there is none, with the oldest capture available. The first line names the age of the compared capture, e.g. `Newest capture compared with the capture from 24 hours ago.`; below 23 hours `(oldest capture available)` is added. Sites that failed in the current run are listed under "No comparison possible".
 
 ### Exit codes
 
