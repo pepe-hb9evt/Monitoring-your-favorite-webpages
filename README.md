@@ -1,8 +1,8 @@
 # Monitoring your favorite webpages
 
-A small Python script that monitors your favorite webpages and logs changes to the **visible** content (text, images, links). The script cycles through your list of webpages and, each time it runs, saves the current visible content for each website and compares it to the last saved version. It then writes to a log file that indicates, for each webpage on your list, whether changes were detected and, if so, exactly what has changed.
+A small Python script that monitors your favorite webpages and logs changes to the **visible** content (text, images, links). The script cycles through your list of webpages and, each time it runs, saves the current visible content for each webpage and compares it to the last saved version. It then writes to a log file that indicates, for each webpage on your list, whether changes were detected and, if so, exactly what has changed.
 
-The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process websites that require a login.
+The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
 
 Developed for Windows, but runs on any system with Python 3.
 
@@ -25,14 +25,14 @@ This README provides a concise overview. For the complete reference, consult **[
 
 ## Installation
 
-1. Copy the files into a project folder, e.g. `C:\Tools\website-monitor\`. All data is stored in this folder.
-2. Copy `websites.example.json` to `websites.json` and enter your sites.
+1. Copy the files into a project folder, e.g. `C:\Tools\webpages-monitor\`. All data is stored in this folder.
+2. Copy `webpages.example.json` to `webpages.json` and enter your sites.
 3. Optional: copy `settings.example.json` to `settings.json` and adjust values.
-4. Test once: `python website_monitor.py`
+4. Test once: `python webpages_monitor.py`
 
 The first run only saves a baseline; comparison starts with the second run.
 
-## Site list (`websites.json`)
+## Site list (`webpages.json`)
 
 ```json
 {
@@ -45,12 +45,12 @@ The first run only saves a baseline; comparison starts with the second run.
 }
 ```
 
-All formats, rules and options: [DOCUMENTATION.md → Site list](DOCUMENTATION.md#site-list-websitesjson).
+All formats, rules and options: [DOCUMENTATION.md → Site list](DOCUMENTATION.md#site-list-webpagesjson).
 
 ## Scheduled runs (Windows)
 
 ```
-schtasks /create /tn "Website Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\website-monitor && python website_monitor.py"
+schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
 ```
 
 Repeat for further times. GUI setup and notes: [DOCUMENTATION.md → Scheduled runs](DOCUMENTATION.md#scheduled-runs-on-windows-task-scheduler).
@@ -60,15 +60,15 @@ Repeat for further times. GUI setup and notes: [DOCUMENTATION.md → Scheduled r
 ```
 report-last-3-days.txt                         report of the last three days
 daily-report.txt                               24-hour comparison
-monitored-websites/<shortname>/captured_*.txt  captures, kept 48 hours
-monitored-websites/<shortname>/archive/*.txt   one capture per day, permanent
+monitored-webpages/<shortname>/captured_*.txt  captures, kept 48 hours
+monitored-webpages/<shortname>/archive/*.txt   one capture per day, permanent
 ```
 
 Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#output).
 
 ## Security
 
-- `websites.json` can contain passwords and is listed in `.gitignore` – never commit it.
+- `webpages.json` can contain passwords and is listed in `.gitignore` – never commit it.
 - Prefer `password_env` over `password`. Passwords never appear in reports.
 
 ## License

@@ -1,7 +1,7 @@
 {
-  "_comment": "Template for settings.json (next to website_monitor.py). All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
+  "_comment": "Template for settings.json (next to webpages_monitor.py). All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
 
-  "websites_file": "websites.json",
+  "webpages_file": "webpages.json",
   "report_file": "report-last-3-days.txt",
   "daily_report_file": "daily-report.txt",
   "daily_compare_hours": 24,

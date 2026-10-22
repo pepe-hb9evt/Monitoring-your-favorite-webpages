@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-r"""Website monitor: fetches pages, extracts the visible content, stores copies and compares them.
+r"""Webpages monitor: fetches pages, extracts the visible content, stores copies and compares them.
 
 Requirements (once):  pip install -r requirements.txt
-Run:                  python website_monitor.py
+Run:                  python webpages_monitor.py
 Settings:             settings.json next to the script (optional, see settings.example.json)
-Site list:            <PROJECT_DIR>\websites.json (read on every run); keys starting with _ are comments
-Storage:              <PROJECT_DIR>\monitored-websites\<shortname>\captured_<YYYY-MM-DD_HHHMM>.txt (one per run,
+Site list:            <PROJECT_DIR>\webpages.json (read on every run); keys starting with _ are comments
+Storage:              <PROJECT_DIR>\monitored-webpages\<shortname>\captured_<YYYY-MM-DD_HHHMM>.txt (one per run,
                       kept 48 hours) and archive\<YYYY-MM-DD>.txt (last capture of each day, kept)
 Report:               <PROJECT_DIR>\report-last-3-days.txt (short reports of the last 3 days,
                       newest first; older runs are removed automatically)
@@ -33,9 +33,13 @@ from bs4 import BeautifulSoup, Comment
 # If the file or a key is missing, the defaults below apply.
 PROJECT_DIR = Path(__file__).resolve().parent  # all files live in the folder of the script
 SETTINGS_FILE = PROJECT_DIR / "settings.json"
-SITES_DIR = PROJECT_DIR / "monitored-websites"  # one sub-folder per monitored website
+SITES_DIR = PROJECT_DIR / "monitored-webpages"  # one sub-folder per monitored webpage
+# names of the former version; renamed automatically on the first run (see migrate_legacy_names)
+LEGACY_SITES_DIR = PROJECT_DIR / "monitored-websites"
+LEGACY_WEBPAGES_FILE = PROJECT_DIR / "websites.json"
+LEGACY_SETTING_KEYS = {"websites_file": "webpages_file"}
 DEFAULTS = {
-    "websites_file": "websites.json",                 # site list (file name inside the project folder)
+    "webpages_file": "webpages.json",                 # site list (file name inside the project folder)
     "report_file": "report-last-3-days.txt",    # report file (file name inside the project folder)
     "report_days": 3,                           # how long runs stay in the report (days)
     "daily_report_file": "daily-report.txt",    # 24-hour comparison (file name inside the project folder)
@@ -53,7 +57,7 @@ DEFAULTS = {
     "image_max_bytes": 5000000,                 # max. bytes read per image (hash over this part)
     "image_timeout_seconds": 15,                # time limit per image
 }
-SETTING_TYPES = {"websites_file": str, "report_file": str, "daily_report_file": str, "daily_compare_hours": int,
+SETTING_TYPES = {"webpages_file": str, "report_file": str, "daily_report_file": str, "daily_compare_hours": int,
                  "capture_keep_hours": int, "report_days": int, "max_change_lines": int,
                  "timeout_seconds": int, "user_agent": str, "ignored_url_params": list,
                  "image_hash": bool, "image_max_count": int, "image_max_bytes": int,
@@ -74,6 +78,7 @@ def load_settings():
     for key, value in data.items():
         if key.startswith("_"):
             continue
+        key = LEGACY_SETTING_KEYS.get(key, key)  # former key names keep working
         if key not in DEFAULTS:
             problems.append(f"{SETTINGS_FILE.name}: unknown key '{key}' ignored")
         elif isinstance(value, bool) != (SETTING_TYPES[key] is bool) or not isinstance(value, SETTING_TYPES[key]) \
@@ -87,7 +92,7 @@ def load_settings():
 
 
 SETTINGS, SETTINGS_PROBLEMS = load_settings()
-WEBSITES_FILE = PROJECT_DIR / SETTINGS["websites_file"]
+WEBPAGES_FILE = PROJECT_DIR / SETTINGS["webpages_file"]
 REPORT_FILE = SETTINGS["report_file"]
 DAILY_REPORT_FILE = SETTINGS["daily_report_file"]
 REPORT_DAYS = SETTINGS["report_days"]
@@ -277,9 +282,19 @@ def diff_lines(old, new, title):
     return [f" [{title}]"] + out if out else []
 
 
-def compare(old_content, new_content):
-    """Return (diff_lines, notes) for two capture contents."""
-    a, n = split_sections(old_content), split_sections(new_content)
+def apply_ignore(sections, rules):
+    """Remove lines matching the ignore rules of a site ({section: [compiled regex, ...]})."""
+    if not rules:
+        return sections
+    return {sec: [z for z in lines if not any(p.search(z) for p in rules.get(sec, []))]
+            for sec, lines in sections.items()}
+
+
+def compare(old_content, new_content, ignore=None):
+    """Return (diff_lines, notes) for two capture contents.
+    ignore: per-site rules; matching lines are removed on both sides before comparing."""
+    a = apply_ignore(split_sections(old_content), ignore)
+    n = apply_ignore(split_sections(new_content), ignore)
     notes = []
     if len(a["TEXT"]) >= 10 and len(n["TEXT"]) < 0.3 * len(a["TEXT"]):
         notes.append(f"Note: text shrank a lot ({len(a['TEXT'])} -> {len(n['TEXT'])} lines), page may be broken")
@@ -287,13 +302,6 @@ def compare(old_content, new_content):
     d = diff_lines(a["TEXT"], n["TEXT"], "Text") + diff_lines(a["IMAGES"], n["IMAGES"], "Images") \
         + diff_lines(a["LINKS"], n["LINKS"], "Links")
     return d, notes
-
-
-def since_text(now, reference):
-    """Age of the reference capture in whole hours, half hours rounded up: '(since 6h ago)'.
-    Empty from 24 hours on (no remark needed)."""
-    hours = age_hours(now, reference)
-    return f"(since {hours}h ago)" if hours < 24 else ""
 
 
 def age_hours(now, reference):
@@ -405,14 +413,14 @@ def build_daily_report(now, sites, failed):
         old_enough = [c for c in captures[:-1] if c[0] <= limit]
         reference = old_enough[-1] if old_enough else captures[0]
         try:
-            d, notes = compare(reference[1].read_text(encoding="utf-8"), newest[1].read_text(encoding="utf-8"))
+            d, notes = compare(reference[1].read_text(encoding="utf-8"), newest[1].read_text(encoding="utf-8"),
+                               entry.get("ignore"))
         except Exception as e:
             no_comparison.append([url, f"ERROR: capture file not readable: {type(e).__name__}: {e}"])
             continue
-        since = since_text(now, reference[0])
         ages.append(age_hours(now, reference[0]))
         if d:
-            changed.append([url, f"Changed {since}".rstrip()] + shorten(d) + notes)
+            changed.append([url, "Changed"] + shorten(d) + notes)
         else:
             unchanged.append(f"-  {url}")
     # most frequent reference age (sites usually share the same run times)
@@ -422,8 +430,8 @@ def build_daily_report(now, sites, failed):
         title += " (oldest capture available)"
     lines = [title, ""]
     lines += group_entries("No comparison possible for:", no_comparison) + [""]
-    lines += group_entries("Changes were detected on the following websites:", changed) + [""]
-    lines += ["The following websites are unchanged:"] + (unchanged or ["(none)"]) + [""]
+    lines += group_entries("Changes were detected on the following webpages:", changed) + [""]
+    lines += ["The following webpages are unchanged:"] + (unchanged or ["(none)"]) + [""]
     lines.append(f"Daily report finished: {len(sites)} sites, {len(changed)} changed, "
                  f"{len(no_comparison)} without comparison")
     return lines
@@ -436,13 +444,51 @@ def write_daily_report(now, lines):
 
 
 # --- Site list -----------------------------------------------------------------------------
+IGNORE_SECTIONS = {"text": "TEXT", "images": "IMAGES", "links": "LINKS"}
+
+
+def parse_ignore(key, raw):
+    """Parse the optional 'ignore' object of a site: {"text"|"images"|"links": [pattern, ...]}.
+    A pattern is a case-insensitive substring, or a regular expression with the prefix 're:'.
+    Return ({section: [compiled regex, ...]}, problems); faulty rules are dropped."""
+    rules, problems = {}, []
+    if raw is None:
+        return rules, problems
+    if not isinstance(raw, dict):
+        return rules, [f"Entry '{key}': 'ignore' must be an object with 'text', 'images', 'links' "
+                       "(rules ignored, site still monitored)"]
+    for sub, patterns in raw.items():
+        if sub.startswith("_"):
+            continue
+        if sub not in IGNORE_SECTIONS:
+            problems.append(f"Entry '{key}': unknown key 'ignore.{sub}' ignored "
+                            "(allowed: text, images, links)")
+            continue
+        if not isinstance(patterns, list):
+            problems.append(f"Entry '{key}': 'ignore.{sub}' must be a list of patterns (rules ignored)")
+            continue
+        compiled = []
+        for p in patterns:
+            if not isinstance(p, str) or not p.strip() or p.strip() == "re:":
+                problems.append(f"Entry '{key}': empty or invalid pattern in 'ignore.{sub}' ignored: {p!r}")
+                continue
+            try:
+                compiled.append(re.compile(p[3:], re.I) if p.startswith("re:") else re.compile(re.escape(p), re.I))
+            except re.error as e:
+                problems.append(f"Entry '{key}': invalid regular expression in 'ignore.{sub}' ignored: "
+                                f"{p!r} ({e})")
+        if compiled:
+            rules[IGNORE_SECTIONS[sub]] = compiled
+    return rules, problems
+
+
 def load_sites():
-    """Read websites.json (short form "name": "URL" or long form with username/password).
+    """Read webpages.json (short form "name": "URL" or long form with username/password).
     Return (valid_sites, fatal_problems, entry_problems).
     Fatal problems (file missing/broken/empty) prevent the run; invalid single entries
     are skipped and only logged."""
-    if not WEBSITES_FILE.exists():
-        return None, [f"File missing: {WEBSITES_FILE}"], []
+    if not WEBPAGES_FILE.exists():
+        return None, [f"File missing: {WEBPAGES_FILE}"], []
     duplicates = []
     try:
         def pairs(items):
@@ -452,7 +498,7 @@ def load_sites():
                     duplicates.append(k)
                 d.setdefault(k, v)  # the first entry wins
             return d
-        data = json.loads(WEBSITES_FILE.read_text(encoding="utf-8-sig"), object_pairs_hook=pairs)
+        data = json.loads(WEBPAGES_FILE.read_text(encoding="utf-8-sig"), object_pairs_hook=pairs)
     except Exception as e:
         return None, [f"File not readable or not valid JSON: {e}"], []
     if not isinstance(data, dict) or not data:
@@ -487,8 +533,10 @@ def load_sites():
                     isinstance(c, int) and not isinstance(c, bool) and 400 <= c <= 599 for c in accept):
                 problems.append(f"Entry '{key}' skipped: 'accept_status' must be a list of HTTP codes 400-599")
                 continue
+            ignore, ignore_problems = parse_ignore(key, value.get("ignore"))
+            problems += ignore_problems  # faulty rules are dropped, the site is still monitored
             good[key] = {"url": value["url"], "auth": (username, password) if username else None,
-                         "accept_status": set(accept)}
+                         "accept_status": set(accept), "ignore": ignore}
     if not good:
         return None, ["No valid URL in the site list"] + problems, []
     return good, [], problems
@@ -506,9 +554,10 @@ def error_text(e):
     return f"Request failed: {type(e).__name__}: {e}"
 
 
-def process_site(name, url, auth, now, accept_status=frozenset()):
+def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None):
     """Return (lines, status); status: 'ok' | 'first' | 'changed' | 'error'.
-    accept_status: HTTP error codes whose response content is used anyway (server misconfiguration)."""
+    accept_status: HTTP error codes whose response content is used anyway (server misconfiguration).
+    ignore: per-site rules of lines to leave out when comparing (captures stay complete)."""
     folder = SITES_DIR / name
     notes = []
     try:
@@ -545,7 +594,6 @@ def process_site(name, url, auth, now, accept_status=frozenset()):
         migrate_legacy(folder)
         older = [c for c in list_captures(folder) if c[0] < now]
         old_content = older[-1][1].read_text(encoding="utf-8") if older else None
-        since = since_text(now, older[-1][0]) if older else ""
         capture_path(folder, now).write_text(content, encoding="utf-8")
         (folder / "archive" / f"{now:%Y-%m-%d}.txt").write_text(content, encoding="utf-8")
         prune_captures(folder, now)
@@ -554,26 +602,48 @@ def process_site(name, url, auth, now, accept_status=frozenset()):
 
     if old_content is None:
         return ["First run, baseline saved, no comparison possible"] + notes, "first"
-    d, more_notes = compare(old_content, content)
+    d, more_notes = compare(old_content, content, ignore)
     notes += more_notes
     if d:
-        return [f"Changed {since}".rstrip()] + shorten(d) + notes, "changed"
+        return ["Changed"] + shorten(d) + notes, "changed"
     return ["No change"] + notes, "ok"
+
+
+def migrate_legacy_names():
+    """Rename the data folder and the site list of the former version (monitored-websites,
+    websites.json) to the new names, so the history is kept. Return notes for the report."""
+    pairs = [(LEGACY_SITES_DIR, SITES_DIR)]
+    if SETTINGS["webpages_file"] == DEFAULTS["webpages_file"]:  # only for the default list name
+        pairs.append((LEGACY_WEBPAGES_FILE, WEBPAGES_FILE))
+    notes = []
+    for old, new in pairs:
+        if not old.exists():
+            continue
+        if new.exists():
+            notes.append(f"Note: '{old.name}' is no longer used ('{new.name}' exists); it can be deleted")
+            continue
+        try:
+            old.rename(new)
+            notes.append(f"Note: '{old.name}' renamed to '{new.name}'")
+        except Exception as e:
+            notes.append(f"ERROR: '{old.name}' could not be renamed to '{new.name}': {type(e).__name__}: {e}")
+    return notes
 
 
 def main():
     now = datetime.now().replace(second=0, microsecond=0)  # capture files have minute resolution
     try:
         PROJECT_DIR.mkdir(parents=True, exist_ok=True)
-        SITES_DIR.mkdir(exist_ok=True)  # create "monitored-websites" if it does not exist yet
+        migration_notes = migrate_legacy_names()
+        SITES_DIR.mkdir(exist_ok=True)  # create "monitored-webpages" if it does not exist yet
     except Exception as e:  # logging is not possible
         print(f"ERROR: folder {SITES_DIR} not available: {e}", file=sys.stderr)
         return 2
-    short, daily, code = [], None, 0
+    short, daily, code = (migration_notes + [""] if migration_notes else []), None, 0
     try:
         sites, fatal, entry_problems = load_sites()
         if fatal:
-            short += ["No comparison possible for:", "", str(WEBSITES_FILE)] + [f"ERROR: {m}" for m in fatal] + [""]
+            short += ["No comparison possible for:", "", str(WEBPAGES_FILE)] + [f"ERROR: {m}" for m in fatal] + [""]
             if SETTINGS_PROBLEMS:
                 short += [str(SETTINGS_FILE)] + [f"ERROR: {m}" for m in SETTINGS_PROBLEMS] + [""]
             short.append("Run finished in a controlled way: site list faulty, no site fetched")
@@ -584,14 +654,15 @@ def main():
                 no_comparison += [[str(SETTINGS_FILE)] + [f"ERROR: {m}" for m in SETTINGS_PROBLEMS]]
                 code = 1
             if entry_problems:
-                no_comparison += [[str(WEBSITES_FILE)] + [f"ERROR: {m}" for m in entry_problems]]
+                no_comparison += [[str(WEBPAGES_FILE)] + [f"ERROR: {m}" for m in entry_problems]]
                 code = 1
             failed = {}
             count = {"ok": 0, "first": 0, "changed": 0, "error": 0}
             for name, entry in sites.items():
                 url = entry["url"]
                 try:
-                    lines, status = process_site(name, url, entry["auth"], now, entry["accept_status"])
+                    lines, status = process_site(name, url, entry["auth"], now, entry["accept_status"],
+                                                 entry["ignore"])
                 except Exception as e:  # one site must not abort the run
                     lines, status = [f"Unexpected error: {type(e).__name__}: {e}"], "error"
                 count[status] += 1
@@ -606,8 +677,8 @@ def main():
                     unchanged.append(url)
 
             short += group_entries("No comparison possible for:", no_comparison) + [""]
-            short += group_entries("Changes were detected on the following websites:", changed) + [""]
-            short += ["The following websites are unchanged:"] + ([f"-  {u}" for u in unchanged] or ["(none)"]) + [""]
+            short += group_entries("Changes were detected on the following webpages:", changed) + [""]
+            short += ["The following webpages are unchanged:"] + ([f"-  {u}" for u in unchanged] or ["(none)"]) + [""]
             short.append(f"Run finished: {len(sites)} sites processed, {count['changed']} changed, "
                          f"{count['error']} errors, {count['first']} first runs, "
                          f"{len(entry_problems) + len(SETTINGS_PROBLEMS)} list/settings errors")
