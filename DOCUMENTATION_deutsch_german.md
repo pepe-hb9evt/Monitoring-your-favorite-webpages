@@ -178,7 +178,7 @@ Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt d
 
 ## Geplante Läufe unter Windows (Aufgabenplanung)
 
-Beispiel: täglich um 06:00, 11:00, 17:00 und 23:00 Uhr. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
+Beispiel: täglich um 05:00, 11:00, 17:00 und 23:00 Uhr. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
 
 Auf englischsprachigen Windows-Systemen heisst die Aufgabenplanung „Task Scheduler“.
 
@@ -264,8 +264,6 @@ Jeder Lauf vergleicht die neueste mit der zweitneuesten Erfassung einer Webseite
 ### Erfassungsdateien
 
 Jeder erfolgreiche Abruf schreibt `captured_YYYY-MM-DD_HHHMM.txt` (z. B. `captured_2026-10-21_11H00.txt`). Erfassungen, die älter als 48 Stunden sind, werden beim nächsten Lauf gelöscht; die beiden neuesten Erfassungen einer Webseite bleiben immer erhalten. Das Archiv bewahrt dauerhaft eine Kopie pro Tag auf. Beim ersten Lauf nach dem Update wird eine vorhandene `current.txt` zur Erfassungsdatei (Uhrzeit aus dem Dateidatum), und `previous.txt` wird gelöscht.
-
-Frühere Namen (Versionen vor der Umbenennung auf „webpages“): Beim ersten Lauf wird der Ordner `monitored-websites` zu `monitored-webpages` und `websites.json` zu `webpages.json` umbenannt; die Historie bleibt erhalten, und im Report erscheint ein Hinweis. Der Einstellungsschlüssel `websites_file` wird weiterhin als `webpages_file` akzeptiert. Geplante Aufgaben müssen auf `webpages_monitor.py` umgestellt werden.
 
 ### Aufbau von `daily-report.txt`
 

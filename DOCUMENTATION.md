@@ -257,8 +257,6 @@ Each run compares the newest capture with the second newest capture of a site. E
 
 Every successful fetch writes `captured_YYYY-MM-DD_HHHMM.txt` (e.g. `captured_2026-10-21_11H00.txt`). Captures older than 48 hours are deleted on the next run; the two newest captures of a site are always kept. The archive keeps one copy per day permanently. On the first run after the update, an existing `current.txt` becomes a capture file (time taken from the file date) and `previous.txt` is deleted.
 
-Former names (versions before the renaming to "webpages"): on the first run the folder `monitored-websites` is renamed to `monitored-webpages` and `websites.json` to `webpages.json`, so the history is kept; the report shows a note. The settings key `websites_file` is still accepted as `webpages_file`. Scheduled tasks must be changed to start `webpages_monitor.py`.
-
 ### Layout of `daily-report.txt`
 
 Rewritten after every run, in the same layout as a run of the report, with the header `=== Daily report YYYY-MM-DD HH:MM ===`. For each site the newest capture is compared with the newest capture that is at least 24 hours old; if there is none, with the oldest capture available. The first line names the age of the compared capture, e.g. `Newest capture compared with the capture from 24 hours ago.`; below 23 hours `(oldest capture available)` is added. Sites that failed in the current run are listed under "No comparison possible".
