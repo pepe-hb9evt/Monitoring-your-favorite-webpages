@@ -1,0 +1,31 @@
+{
+  "_comment": "Template for websites.json. Copy to websites.json and adjust. Keys starting with _ are ignored.",
+
+  "_short_form": "Short name -> URL. The short name is also the name of the data folder (allowed: letters, digits, dot, underscore, hyphen).",
+  "example-public": "https://example.org/news/",
+
+  "_long_form": "Object with 'url'. Equivalent to the short form if only 'url' is given.",
+  "example-long-form": {
+    "url": "https://example.org/documents/"
+  },
+
+  "_accept_status": "Use the content even if the server answers with one of these HTTP error codes (only for servers known to send a wrong status code).",
+  "example-wrong-status": {
+    "url": "https://example.org/club/",
+    "accept_status": [500]
+  },
+
+  "_login_env": "With HTTP Basic login. The password is stored in an environment variable (recommended).",
+  "example-login-env": {
+    "url": "https://example.org/internal/",
+    "username": "my-user",
+    "password_env": "MONITOR_PW_INTERNAL"
+  },
+
+  "_login_plain": "With HTTP Basic login, password directly in the file (only if the file is protected; never commit it to Git).",
+  "example-login-plain": {
+    "url": "https://example.org/private/",
+    "username": "my-user",
+    "password": "my-password"
+  }
+}

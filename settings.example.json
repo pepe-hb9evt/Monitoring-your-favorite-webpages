@@ -1,0 +1,18 @@
+{
+  "_comment": "Template for settings.json (next to website_monitor.py). All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
+
+  "websites_file": "websites.json",
+  "report_file": "report-last-3-days.txt",
+  "daily_report_file": "daily-report.txt",
+  "daily_compare_hours": 24,
+  "capture_keep_hours": 48,
+  "report_days": 3,
+  "max_change_lines": 15,
+  "timeout_seconds": 45,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "ignored_url_params": ["ver", "v", "t", "ts", "timestamp", "cb", "sid", "phpsessid", "csrf", "token", "nonce", "sectok"],
+  "image_hash": true,
+  "image_max_count": 50,
+  "image_max_bytes": 5000000,
+  "image_timeout_seconds": 15
+}
