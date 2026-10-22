@@ -11,7 +11,6 @@ The current version only reports what has changed, but does not tell you where o
 The script is designed to compare text. Images and graphics are not compared visually; instead, only their hash values are compared. As a result, the script only detects that an image or graphic has been modified, but not what specific visual changes have been made.
 
 The current version only reports what has changed, but does not tell you where on the webpage the change is located. Likewise, the script cannot yet process webpages that require a login.
->>>>>>> Stashed changes
 
 Developesd for Windows, but runs on any system with Python 3.
 

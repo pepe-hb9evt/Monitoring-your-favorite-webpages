@@ -133,8 +133,8 @@ Optional pro Webseite: `"accept_status": [500]` verwendet den Inhalt auch dann, 
 Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler, „Letzte Aktualisierung“), lassen sich vom Vergleich ausnehmen, getrennt nach Abschnitt der Erfassungsdatei:
 
 ```json
-"hb9cl": {
-  "url": "https://www.hb9.cl/",
+"zeta-home": {
+  "url": "https://example-zeta.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Letzte Aktualisierung:"],
@@ -173,6 +173,7 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 | `image_max_count` | `50` | Max. heruntergeladene Bilder pro Seite |
 | `image_max_bytes` | `5000000` | Max. gelesene Bytes pro Bild |
 | `image_timeout_seconds` | `15` | Zeitlimit pro Bild |
+| `console_progress` | `true` | Fortschritt pro Webseite im Terminal-Fenster anzeigen |
 
 Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis.
 
@@ -268,6 +269,22 @@ Jeder erfolgreiche Abruf schreibt `captured_YYYY-MM-DD_HHHMM.txt` (z. B. `captur
 ### Aufbau von `daily-report.txt`
 
 Wird nach jedem Lauf neu geschrieben, im gleichen Aufbau wie ein Lauf des Reports, mit der Kopfzeile `=== Daily report YYYY-MM-DD HH:MM ===`. Für jede Webseite wird die neueste Erfassung mit der neuesten Erfassung verglichen, die mindestens 24 Stunden alt ist; gibt es keine solche, mit der ältesten vorhandenen. Die erste Zeile nennt das Alter der Vergleichserfassung, z. B. `Newest capture compared with the capture from 24 hours ago.`; unter 23 Stunden wird `(oldest capture available)` ergänzt. Webseiten, die im aktuellen Lauf fehlgeschlagen sind, stehen unter „No comparison possible“.
+
+### Terminal-Fenster
+
+Während des Laufs zeigt das Skript, welche Webseite gerade abgerufen wird, und das Ergebnis:
+
+```
+Webpages monitor – run 2026-10-22 11:00 – 26 sites
+
+[ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
+[ 2/26] https://example-beta.com/dt/ ... CHANGED (4.8 s)
+[ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
+
+Writing reports ... done
+```
+
+Sonst erscheint nichts im Terminal; alle Details stehen in den Report-Dateien. Mit `console_progress` auf `false` wird die Anzeige abgeschaltet.
 
 ### Exit-Codes
 

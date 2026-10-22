@@ -13,6 +13,7 @@ Daily report:         <PROJECT_DIR>\daily-report.txt (rewritten on every run: ne
                       with the newest capture at least 24 hours old, or the oldest one available)
 Images:               each <img> is downloaded once per run and stored with a content hash
                       ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
+Console:              progress per webpage is shown while running (setting "console_progress")
 Exit code:            0 = no change, 1 = change or site error, 2 = configuration/program error
 """
 import difflib
@@ -21,6 +22,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
@@ -56,12 +58,13 @@ DEFAULTS = {
     "image_max_count": 50,                      # max. downloaded images per page
     "image_max_bytes": 5000000,                 # max. bytes read per image (hash over this part)
     "image_timeout_seconds": 15,                # time limit per image
+    "console_progress": True,                   # show progress per webpage in the terminal window
 }
 SETTING_TYPES = {"webpages_file": str, "report_file": str, "daily_report_file": str, "daily_compare_hours": int,
                  "capture_keep_hours": int, "report_days": int, "max_change_lines": int,
                  "timeout_seconds": int, "user_agent": str, "ignored_url_params": list,
                  "image_hash": bool, "image_max_count": int, "image_max_bytes": int,
-                 "image_timeout_seconds": int}
+                 "image_timeout_seconds": int, "console_progress": bool}
 
 
 def load_settings():
@@ -109,6 +112,11 @@ IMAGE_HASH = SETTINGS["image_hash"]
 IMAGE_MAX_COUNT = SETTINGS["image_max_count"]
 IMAGE_MAX_BYTES = SETTINGS["image_max_bytes"]
 IMAGE_TIMEOUT = SETTINGS["image_timeout_seconds"]
+CONSOLE_PROGRESS = SETTINGS["console_progress"]
+PROGRESS_URL_WIDTH = 60  # longer URLs are shortened in the terminal window
+PROGRESS_ERROR_WIDTH = 80  # longer error texts are shortened in the terminal window
+CLOSING_DOTS = 5  # dots written after the run, one per CLOSING_DOT_SECONDS, before the window closes
+CLOSING_DOT_SECONDS = 1
 IMAGE_CACHE = {}  # image URL -> hash, so an image used on several pages is downloaded once per run
 UNKNOWN_HASH = "?"  # image could not be downloaded; ignored when comparing
 IMAGE_LINE = re.compile(r"^(.*) \| sha1=([0-9a-f]{16}|\?)$")
@@ -116,6 +124,29 @@ HIDDEN_STYLE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
 PIXEL = re.compile(r"(pixel|tracking|spacer|blank\.gif|1x1)", re.I)
 JS_LINK = re.compile(r" -> javascript:.*$", re.I)  # normalizes javascript links of older captures
 HEADER = re.compile(r"^=== Run (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) ===$")
+
+
+# --- Terminal progress ---------------------------------------------------------------------
+def progress(text="", end="\n"):
+    """Write a progress message to the terminal window immediately (no buffering)."""
+    if not CONSOLE_PROGRESS:
+        return
+    try:
+        print(text, end=end, flush=True)
+    except Exception:
+        pass  # the terminal output must never stop the run
+
+
+def short_url(url):
+    return url if len(url) <= PROGRESS_URL_WIDTH else url[:PROGRESS_URL_WIDTH - 3] + "..."
+
+
+def progress_status(lines, status):
+    """Short result text of one webpage for the terminal window."""
+    if status == "error":
+        text = "ERROR: " + lines[0].removeprefix("URL not reachable: ")
+        return text if len(text) <= PROGRESS_ERROR_WIDTH else text[:PROGRESS_ERROR_WIDTH - 3] + "..."
+    return {"ok": "no change", "first": "first run", "changed": "CHANGED"}.get(status, status)
 
 
 # --- Content extraction --------------------------------------------------------------------
@@ -633,6 +664,10 @@ def migrate_legacy_names():
 def main():
     now = datetime.now().replace(second=0, microsecond=0)  # capture files have minute resolution
     try:
+        sys.stdout.reconfigure(errors="replace")  # special characters must not break the console output
+    except Exception:
+        pass
+    try:
         PROJECT_DIR.mkdir(parents=True, exist_ok=True)
         migration_notes = migrate_legacy_names()
         SITES_DIR.mkdir(exist_ok=True)  # create "monitored-webpages" if it does not exist yet
@@ -643,6 +678,7 @@ def main():
     try:
         sites, fatal, entry_problems = load_sites()
         if fatal:
+            progress(f"Webpages monitor – run {now:%Y-%m-%d %H:%M} – ERROR: site list faulty, no site fetched")
             short += ["No comparison possible for:", "", str(WEBPAGES_FILE)] + [f"ERROR: {m}" for m in fatal] + [""]
             if SETTINGS_PROBLEMS:
                 short += [str(SETTINGS_FILE)] + [f"ERROR: {m}" for m in SETTINGS_PROBLEMS] + [""]
@@ -658,13 +694,18 @@ def main():
                 code = 1
             failed = {}
             count = {"ok": 0, "first": 0, "changed": 0, "error": 0}
-            for name, entry in sites.items():
+            progress(f"Webpages monitor – run {now:%Y-%m-%d %H:%M} – {len(sites)} sites\n")
+            width = len(str(len(sites)))
+            for index, (name, entry) in enumerate(sites.items(), start=1):
                 url = entry["url"]
+                progress(f"[{index:>{width}}/{len(sites)}] {short_url(url)} ... ", end="")
+                started = time.monotonic()
                 try:
                     lines, status = process_site(name, url, entry["auth"], now, entry["accept_status"],
                                                  entry["ignore"])
                 except Exception as e:  # one site must not abort the run
                     lines, status = [f"Unexpected error: {type(e).__name__}: {e}"], "error"
+                progress(f"{progress_status(lines, status)} ({time.monotonic() - started:.1f} s)")
                 count[status] += 1
                 if status == "error":
                     failed[name] = lines[0]
@@ -688,17 +729,25 @@ def main():
         short += ["ERROR: Unexpected error during the run: " + f"{type(e).__name__}: {e}", "",
                   "Run finished in a controlled way after an unexpected error"]
         code = 2
+    progress("\nWriting reports ... ", end="")
+    report_errors = []
     try:
         write_report(now, short)
     except Exception as e:
-        print(f"ERROR: report could not be written: {e}", file=sys.stderr)
-        code = 2
+        report_errors.append(f"ERROR: report could not be written: {e}")
     try:
         write_daily_report(now, daily if daily is not None else short)  # on fatal errors: same text as the run
     except Exception as e:
-        print(f"ERROR: daily report could not be written: {e}", file=sys.stderr)
+        report_errors.append(f"ERROR: daily report could not be written: {e}")
+    progress("failed" if report_errors else "done")
+    for message in report_errors:
+        print(message, file=sys.stderr)
         code = 2
-    print(f"=== Run {now:%Y-%m-%d %H:%M} ===\n\n" + "\n".join(short))
+    if CONSOLE_PROGRESS:  # short pause with visible dots so the final lines can still be read
+        for _ in range(CLOSING_DOTS):
+            time.sleep(CLOSING_DOT_SECONDS)
+            progress(".", end="")
+        progress()
     return code
 
 

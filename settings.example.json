@@ -14,5 +14,6 @@
   "image_hash": true,
   "image_max_count": 50,
   "image_max_bytes": 5000000,
-  "image_timeout_seconds": 15
+  "image_timeout_seconds": 15,
+  "console_progress": true
 }

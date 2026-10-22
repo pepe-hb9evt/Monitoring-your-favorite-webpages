@@ -127,8 +127,8 @@ Optional per site: `"accept_status": [500]` uses the content even if the server 
 Optional per site: lines that change all the time (solar banners, counters, "last update" lines) can be excluded from the comparison, separately for each section of a capture file:
 
 ```json
-"hb9cl": {
-  "url": "https://www.hb9.cl/",
+"zeta-home": {
+  "url": "https://example-zeta.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Last update:"],
@@ -167,6 +167,7 @@ Optional. Located next to the script; see [`settings.example.json`](settings.exa
 | `image_max_count` | `50` | Max. downloaded images per page |
 | `image_max_bytes` | `5000000` | Max. bytes read per image |
 | `image_timeout_seconds` | `15` | Time limit per image |
+| `console_progress` | `true` | Show the progress per webpage in the terminal window |
 
 Invalid values or unknown keys never abort a run: the default is used and a note appears in the report.
 
@@ -260,6 +261,22 @@ Every successful fetch writes `captured_YYYY-MM-DD_HHHMM.txt` (e.g. `captured_20
 ### Layout of `daily-report.txt`
 
 Rewritten after every run, in the same layout as a run of the report, with the header `=== Daily report YYYY-MM-DD HH:MM ===`. For each site the newest capture is compared with the newest capture that is at least 24 hours old; if there is none, with the oldest capture available. The first line names the age of the compared capture, e.g. `Newest capture compared with the capture from 24 hours ago.`; below 23 hours `(oldest capture available)` is added. Sites that failed in the current run are listed under "No comparison possible".
+
+### Terminal window
+
+While running, the script shows which webpage is being fetched and the result:
+
+```
+Webpages monitor – run 2026-10-22 11:00 – 26 sites
+
+[ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
+[ 2/26] https://example-beta.com/dt/ ... CHANGED (4.8 s)
+[ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
+
+Writing reports ... done
+```
+
+Nothing else is written to the terminal; all details are in the report files. Set `console_progress` to `false` to switch the display off.
 
 ### Exit codes
 
