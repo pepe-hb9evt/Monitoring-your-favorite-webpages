@@ -2,9 +2,9 @@
   "_comment": "Template for settings.json (next to webpages_monitor.py). All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
 
   "webpages_file": "webpages.json",
-  "report_file": "report-last-3-days.txt",
-  "daily_report_file": "daily-report.txt",
-  "daily_compare_hours": 24,
+  "report_file": "REPORT-of-every-run-last-3-days.txt",
+  "daily_report_file": "REPORT-daily-summary.txt",
+  "daily_compare_hours": 23,
   "capture_keep_hours": 48,
   "report_days": 3,
   "max_change_lines": 15,
