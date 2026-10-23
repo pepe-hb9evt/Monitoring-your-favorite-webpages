@@ -1,23 +1,83 @@
 #!/usr/bin/env python3
-r"""Webpages monitor: fetches pages, extracts the visible content, stores copies and compares them.
+r"""Monitoring your favorite webpages
+==================================
 
-Requirements (once):  pip install -r requirements.txt
+Project:   Monitoring-your-favorite-webpages
+           https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages
+Authors:   Pepe HB9EVT (https://github.com/pepe-hb9evt)
+           Claude (Anthropic)
+License:   MIT, see LICENSE  (SPDX-License-Identifier: MIT)
+Docs:      README.md / README_deutsch_german.md            short overview
+           DOCUMENTATION.md / DOCUMENTATION_deutsch_german.md  complete reference
+
+Description
+-----------
+A small Python script that monitors your favorite webpages and logs changes to the
+visible content (text, images, links). It works through a list of webpages, saves the
+current visible content of each webpage on every run and compares it with the previously
+saved version. Two report files then list for each webpage whether changes were detected
+and, if so, exactly what has changed.
+
+Usage
+-----
+Requirements (once):  Python 3.9 or newer, then  pip install -r requirements.txt
 Run:                  python webpages_monitor.py
-Settings:             settings.json next to the script (optional, see settings.example.json)
-Site list:            <PROJECT_DIR>\webpages.json (read on every run); keys starting with _ are comments;
-                      a key "STOP" ends the list (test runs: entries below it are skipped)
-Storage:              <PROJECT_DIR>\monitored-webpages\<shortname>\captured_<YYYY-MM-DD_HHHMM>.txt (one per run,
-                      kept 48 hours) and archive\<YYYY-MM-DD>.txt (last capture of each day, kept)
-Report:               <PROJECT_DIR>\REPORT-of-every-run-last-3-days.txt (short reports of the last 3 days,
-                      newest first; older runs are removed automatically)
-Daily report:         <PROJECT_DIR>\REPORT-daily-summary.txt (rewritten on every run: newest capture compared
-                      with the newest capture at least 23 hours old, or the oldest one available)
-Login:                HTTP Basic (default) or WordPress login form ("login": "wordpress"); see DOCUMENTATION.md
-Images:               each <img> is downloaded once per run and stored with a content hash
-                      ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
-Console:              progress per webpage is shown while running (setting "console_progress")
-Exit code:            0 = no change, 1 = change or site error, 2 = configuration/program error
+Scheduled runs:       e.g. Windows Task Scheduler (see DOCUMENTATION.md)
+
+Files (all in the folder of this script = PROJECT_DIR)
+-----
+webpages.json                         site list, re-read on every run (template: webpages.example.json);
+                                      keys starting with _ are comments; a key "STOP" ends the list
+                                      (test runs: entries below it are skipped)
+settings.json                         optional settings (template: settings.example.json)
+REPORT-of-every-run-last-3-days.txt   short report of every run of the last 3 days, newest first
+REPORT-daily-summary.txt              rewritten on every run: newest capture compared with the newest
+                                      capture at least 23 hours old (or the oldest one available)
+monitored-webpages\<shortname>\captured_<YYYY-MM-DD_HHHMM>.txt   one capture per fetch, kept 48 hours
+monitored-webpages\<shortname>\archive\<YYYY-MM-DD>.txt          last capture of each day, kept permanently
+
+Site list entries (webpages.json)
+-----------------
+"name": "URL"                          short form
+"name": {"url": ..., ...}              long form with the optional keys:
+    username, password / password_env  credentials (password_env = name of an environment variable)
+    login                              "basic" (default, HTTP Basic) or "wordpress" (WordPress login form)
+    login_url                          address of the WordPress login form (default <site>/wp-login.php)
+    accept_status                      HTTP error codes whose content is used anyway, e.g. [500]
+    ignore                             lines left out when comparing: {"text"|"images"|"links": [pattern, ...]}
+
+Settings (settings.json, all optional; defaults in DEFAULTS below)
+--------
+webpages_file, report_file, daily_report_file   file names inside the project folder
+daily_compare_hours (23)                        minimum age of the reference capture for the daily report
+capture_keep_hours (48), report_days (3)        retention of captures and report entries
+max_change_lines (15)                           change lines per webpage in the report
+timeout_seconds (45), user_agent                HTTP request settings
+ignored_url_params                              volatile URL parameters ignored when comparing
+image_hash (true), image_max_count (50),        download images and compare their content hash
+image_max_bytes, image_timeout_seconds
+console_progress (true)                         progress per webpage in the terminal window
+
+How it works
+------------
+- Visible content is extracted with BeautifulSoup/lxml; scripts, styles, hidden elements and
+  comments are ignored. Text, images and links are stored and compared in separate sections.
+- Each <img> is downloaded once per run and stored with a content hash ("URL | alt=... | sha1=..."),
+  so a new image under the same URL is detected.
+- Faulty list entries or unreachable webpages never stop the run; they are logged as errors.
+
+Exit codes
+----------
+0 = no change and no errors, 1 = change, site error or list/settings error,
+2 = site list unusable or program error
+
+Last important words: RTFM !
 """
+
+__author__ = "Pepe HB9EVT, Claude (Anthropic)"
+__license__ = "MIT"
+__url__ = "https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages"
+
 import difflib
 import hashlib
 import json
