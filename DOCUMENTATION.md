@@ -19,7 +19,7 @@
 - Extracts the visible content with BeautifulSoup/lxml: scripts, styles, hidden elements (`hidden`, `aria-hidden="true"`, `display:none`) and comments are ignored.
 - Compares **text**, **images** (including alt text and inline-SVG hash) and **links** separately.
 - Image content: every `<img>` is downloaded once per run and stored with a content hash (`URL | alt=… | sha1=…`), so an image replaced under the **same URL** is detected. See [Image detection](#image-detection).
-- Volatile noise such as `?ver=`, session IDs, CSRF tokens and cache busters is stripped from URLs.
+- Volatile noise such as `?ver=`, session IDs, CSRF tokens, cache busters and the `refresh` parameter of download links (WordPress Download Manager) is stripped from URLs.
 - `javascript:` links are stored without their code (it often contains random names, e.g. for e-mail obfuscation); only the link text is compared.
 - Site list in a JSON file, optionally with username and password (HTTP Basic or WordPress login form).
 - Faulty entries and unreachable sites do not stop the run; they are logged and the remaining sites are still checked.

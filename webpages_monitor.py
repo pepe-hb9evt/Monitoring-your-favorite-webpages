@@ -54,7 +54,8 @@ DEFAULTS = {
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     # URL parameters that may change on every request and are ignored when comparing
     "ignored_url_params": ["ver", "v", "_", "t", "ts", "time", "timestamp", "cb", "cachebust",
-                           "sid", "phpsessid", "csrf", "csrf_token", "token", "nonce", "sectok"],
+                           "sid", "phpsessid", "csrf", "csrf_token", "token", "nonce", "sectok",
+                           "refresh"],  # refresh: changes on every request (WordPress Download Manager links)
     "image_hash": True,                         # download images and compare their content
     "image_max_count": 50,                      # max. downloaded images per page
     "image_max_bytes": 5000000,                 # max. bytes read per image (hash over this part)
@@ -298,6 +299,16 @@ def build_file(text, images, links):
     return "\n".join(text + ["", "=== IMAGES ==="] + images + ["", "=== LINKS ==="] + links) + "\n"
 
 
+def normalize_link_line(line):
+    """Apply the current URL cleaning to a stored link line, so older captures that still contain
+    volatile parameters (e.g. after 'ignored_url_params' was extended) do not show up as changes."""
+    line = JS_LINK.sub(" -> javascript:", line)
+    text, sep, url = line.rpartition(" -> ")
+    if not sep or not url.lower().startswith(("http://", "https://")):
+        return line
+    return f"{text} -> {clean_url(url, url) or url}"
+
+
 def split_sections(content):
     sections, cur = {"TEXT": [], "IMAGES": [], "LINKS": []}, "TEXT"
     for line in content.splitlines():
@@ -306,7 +317,7 @@ def split_sections(content):
         elif line == "=== LINKS ===":
             cur = "LINKS"
         elif line:
-            sections[cur].append(JS_LINK.sub(" -> javascript:", line) if cur == "LINKS" else line)
+            sections[cur].append(normalize_link_line(line) if cur == "LINKS" else line)
     return sections
 
 

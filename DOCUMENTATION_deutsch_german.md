@@ -25,7 +25,7 @@
 - Extrahiert den sichtbaren Inhalt mit BeautifulSoup/lxml: Skripte, Styles, versteckte Elemente (`hidden`, `aria-hidden="true"`, `display:none`) und Kommentare werden ignoriert.
 - Vergleicht **Text**, **Bilder** (inklusive Alt-Text und Hash von Inline-SVG) und **Links** getrennt.
 - Bildinhalt: Jedes `<img>` wird pro Lauf einmal heruntergeladen und mit einem Inhalts-Hash gespeichert (`URL | alt=… | sha1=…`). So wird auch ein Bild erkannt, das unter **derselben URL** ausgetauscht wurde. Siehe [Bilderkennung](#bilderkennung).
-- Wechselnde Bestandteile wie `?ver=`, Session-IDs, CSRF-Tokens und Cache-Buster werden aus URLs entfernt.
+- Wechselnde Bestandteile wie `?ver=`, Session-IDs, CSRF-Tokens, Cache-Buster und der Parameter `refresh` von Download-Links (WordPress Download Manager) werden aus URLs entfernt.
 - `javascript:`-Links werden ohne ihren Code gespeichert (er enthält oft zufällige Namen, z. B. zur Verschleierung von E-Mail-Adressen); verglichen wird nur der Link-Text.
 - Webseiten-Liste in einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic oder WordPress-Anmeldeformular).
 - Fehlerhafte Einträge und nicht erreichbare Webseiten brechen den Lauf nicht ab; sie werden protokolliert, und die übrigen Webseiten werden trotzdem geprüft.

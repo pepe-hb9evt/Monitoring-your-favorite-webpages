@@ -10,7 +10,7 @@
   "max_change_lines": 15,
   "timeout_seconds": 45,
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-  "ignored_url_params": ["ver", "v", "t", "ts", "timestamp", "cb", "sid", "phpsessid", "csrf", "token", "nonce", "sectok"],
+  "ignored_url_params": ["ver", "v", "t", "ts", "timestamp", "cb", "sid", "phpsessid", "csrf", "token", "nonce", "sectok", "refresh"],
   "image_hash": true,
   "image_max_count": 50,
   "image_max_bytes": 5000000,
