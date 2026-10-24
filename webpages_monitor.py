@@ -13,6 +13,8 @@ Report:               <PROJECT_DIR>\REPORT-of-every-run-last-3-days.txt (short r
 Daily report:         <PROJECT_DIR>\REPORT-daily-summary.txt (rewritten on every run: newest capture compared
                       with the newest capture at least 23 hours old, or the oldest one available)
 Login:                HTTP Basic (default) or WordPress login form ("login": "wordpress"); see DOCUMENTATION.md
+Ignore rules:         per site "ignore": {"elements": [CSS selector, ...]} removes HTML elements before
+                      extraction; "text"/"images"/"links": [pattern, ...] leave lines out when comparing
 Images:               each <img> is downloaded once per run and stored with a content hash
                       ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
 Console:              progress per webpage is shown while running (setting "console_progress")
@@ -30,6 +32,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import requests
+import soupsieve
 from bs4 import BeautifulSoup, Comment
 
 # --- Settings ------------------------------------------------------------------------------
@@ -179,8 +182,9 @@ def is_hidden(tag):
     return bool(HIDDEN_STYLE.search(tag.get("style", "") or ""))
 
 
-def extract(html, base_url):
-    """Return (text_lines, images, links) of the visible content."""
+def extract(html, base_url, remove_selectors=None):
+    """Return (text_lines, images, links) of the visible content.
+    remove_selectors: CSS selectors of elements removed with all their content (ignore.elements)."""
     soup = BeautifulSoup(html, "lxml")
     for t in soup.find_all(string=lambda s: isinstance(s, Comment)):
         t.extract()
@@ -188,6 +192,10 @@ def extract(html, base_url):
         t.decompose()
     for t in [t for t in soup.find_all(True) if is_hidden(t)]:
         t.decompose()
+    for selector in remove_selectors or []:  # volatile page areas, e.g. "div.prop-list"
+        for t in soup.select(selector):
+            if not t.decomposed:  # already removed together with a matching parent
+                t.decompose()
 
     images, links = [], []
     for img in soup.find_all("img"):
@@ -321,6 +329,7 @@ def apply_ignore(sections, rules):
     """Remove lines matching the ignore rules of a site ({section: [compiled regex, ...]})."""
     if not rules:
         return sections
+    # rules["ELEMENTS"] (CSS selectors) is applied during extraction, not here
     return {sec: [z for z in lines if not any(p.search(z) for p in rules.get(sec, []))]
             for sec, lines in sections.items()}
 
@@ -468,27 +477,46 @@ def write_daily_report(now, lines):
 
 # --- Site list -----------------------------------------------------------------------------
 IGNORE_SECTIONS = {"text": "TEXT", "images": "IMAGES", "links": "LINKS"}
+IGNORE_ELEMENTS = "elements"  # key in "ignore" for CSS selectors of HTML elements to remove
 
 
 def parse_ignore(key, raw):
-    """Parse the optional 'ignore' object of a site: {"text"|"images"|"links": [pattern, ...]}.
+    """Parse the optional 'ignore' object of a site: {"text"|"images"|"links": [pattern, ...],
+    "elements": [CSS selector, ...]}.
     A pattern is a case-insensitive substring, or a regular expression with the prefix 're:'.
-    Return ({section: [compiled regex, ...]}, problems); faulty rules are dropped."""
+    Return ({section: [compiled regex, ...], "ELEMENTS": [selector, ...]}, problems);
+    faulty rules are dropped."""
     rules, problems = {}, []
     if raw is None:
         return rules, problems
     if not isinstance(raw, dict):
-        return rules, [f"Entry '{key}': 'ignore' must be an object with 'text', 'images', 'links' "
-                       "(rules ignored, site still monitored)"]
+        return rules, [f"Entry '{key}': 'ignore' must be an object with 'text', 'images', 'links', "
+                       "'elements' (rules ignored, site still monitored)"]
     for sub, patterns in raw.items():
         if sub.startswith("_"):
             continue
-        if sub not in IGNORE_SECTIONS:
+        if sub not in IGNORE_SECTIONS and sub != IGNORE_ELEMENTS:
             problems.append(f"Entry '{key}': unknown key 'ignore.{sub}' ignored "
-                            "(allowed: text, images, links)")
+                            "(allowed: text, images, links, elements)")
             continue
         if not isinstance(patterns, list):
-            problems.append(f"Entry '{key}': 'ignore.{sub}' must be a list of patterns (rules ignored)")
+            what = "CSS selectors" if sub == IGNORE_ELEMENTS else "patterns"
+            problems.append(f"Entry '{key}': 'ignore.{sub}' must be a list of {what} (rules ignored)")
+            continue
+        if sub == IGNORE_ELEMENTS:
+            selectors = []
+            for sel in patterns:
+                if not isinstance(sel, str) or not sel.strip():
+                    problems.append(f"Entry '{key}': empty or invalid selector in 'ignore.elements' ignored: {sel!r}")
+                    continue
+                try:
+                    soupsieve.compile(sel.strip())  # check the syntax once while loading
+                    selectors.append(sel.strip())
+                except Exception as e:
+                    problems.append(f"Entry '{key}': invalid CSS selector in 'ignore.elements' ignored: "
+                                    f"{sel!r} ({str(e).splitlines()[0]})")  # first line only
+            if selectors:
+                rules["ELEMENTS"] = selectors
             continue
         compiled = []
         for p in patterns:
@@ -661,7 +689,8 @@ def looks_like_login_page(requested_url, response):
 def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None, form_login=None):
     """Return (lines, status); status: 'ok' | 'first' | 'changed' | 'error'.
     accept_status: HTTP error codes whose response content is used anyway (server misconfiguration).
-    ignore: per-site rules of lines to leave out when comparing (captures stay complete).
+    ignore: per-site rules; "ELEMENTS" selectors are removed before extraction (not in the capture),
+            line rules are only applied when comparing (captures stay complete).
     form_login: (type, login URL, (username, password)) for sites behind a login form, else None."""
     folder = SITES_DIR / name
     notes = []
@@ -691,7 +720,7 @@ def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None, f
         return [f"Content faulty: unexpected content type '{ct}' (not HTML)"], "error"
     try:
         r.encoding = r.encoding if r.encoding and r.encoding.lower() != "iso-8859-1" else r.apparent_encoding
-        text, images, links = extract(r.text, r.url)
+        text, images, links = extract(r.text, r.url, (ignore or {}).get("ELEMENTS"))
     except Exception as e:
         return [f"Content faulty: HTML could not be parsed ({type(e).__name__}: {e})"], "error"
     if not text or sum(len(z) for z in text) < 30:
@@ -811,6 +840,8 @@ def main():
         print(message, file=sys.stderr)
         code = 2
     if CONSOLE_PROGRESS:  # short pause with visible dots so the final lines can still be read
+        progress()  # empty line
+        progress(f"Terminal will be closed in {CLOSING_DOTS * CLOSING_DOT_SECONDS} seconds", end="")
         for _ in range(CLOSING_DOTS):
             time.sleep(CLOSING_DOT_SECONDS)
             progress(".", end="")

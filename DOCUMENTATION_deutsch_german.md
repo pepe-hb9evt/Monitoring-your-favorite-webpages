@@ -72,16 +72,22 @@ Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist
 ### Langform
 
 ```json
-"beta-dt": { "url": "https://example-beta.com/dt/" }
+"bravo-dt": { "url": "https://example-bravo.com/dt/" }
 ```
 
-### Mit Logindaten (HTTP Basic)
+Für was die Langform benötigt wird,  zeigen die folgenden Varianten.
 
-#### Passwort als Umgebungsvariable gespeichert (empfohlen)
+### Webseiten mit Logins
+
+Unterstützt wird das Login mit HTTP Basic sowie das WordPress-Anmeldeformular.
+
+**Nicht unterstützt** werden andere Anmeldeformulare (z. B. MediaWiki, DokuWiki).
+
+#### Login HTTP Basic mit Passwort als Umgebungsvariable gespeichert (empfohlen)
 
 ```json
 "internal": {
-  "url": "https://example-epsilon.com/internal/",
+  "url": "https://example-echo.com/internal/",
   "username": "my-user",
   "password_env": "MONITOR_PW_INTERNAL"
 }
@@ -93,31 +99,35 @@ Variable einmalig setzen (danach ist ein neues Terminal oder eine neue Anmeldung
 setx MONITOR_PW_INTERNAL "secret-password"
 ```
 
-#### Passwort im Klartext (nicht empfohlen)
+Ist die Umgebungsvariable beim Lauf nicht gesetzt, wird die Webseite übersprungen; im Report steht dann `Entry '…' skipped: environment variable '…' is not set`. Das gilt für alle Login-Arten mit `password_env`.
+
+#### Login HTTP Basic mit Passwort im Klartext (nicht empfohlen)
 
 ```json
 "private": {
-  "url": "https://example-epsilon.com/private/",
+  "url": "https://example-echo.com/private/",
   "username": "my-user",
   "password": "my-password"
 }
 ```
 
-### Mit Anmeldeformular (WordPress)
+#### Login mit Anmeldeformular (WordPress)
 
 Viele Vereins- und Verbandsseiten nutzen statt HTTP Basic das normale WordPress-Anmeldeformular. Mit `"login": "wordpress"` meldet sich das Skript vor dem Abruf über dieses Formular an:
 
 ```json
 "members-reports": {
-  "url": "https://example-eta.com/de/members/reports/",
+  "url": "https://example-golf.com/de/members/reports/",
   "login": "wordpress",
   "username": "my-user",
-  "password_env": "MONITOR_PW_ETA"
+  "password_env": "MONITOR_PW_MEMBERS"
 }
 ```
 
-- Als Adresse des Anmeldeformulars wird `<Webseite>/wp-login.php` verwendet. Verwendet die Webseite eine andere Adresse, `"login_url": "https://example-eta.com/wp-login.php"` ergänzen.
+- Als Adresse des Anmeldeformulars wird `<Webseite>/wp-login.php` verwendet. Verwendet die Webseite eine andere Adresse, `"login_url": "https://example-golf.com/wp-login.php"` ergänzen.
 - Jede Anmeldung (gleiche `login_url` und gleicher `username`) erfolgt einmal pro Lauf; weitere Seiten derselben Webseite verwenden sie mit. Auch die Bilder der Seite werden angemeldet abgerufen.
+- Schlägt die Anmeldung fehl, wird sie im selben Lauf nicht wiederholt: Alle Seiten mit derselben Anmeldung zählen dann als Fehler und erhalten dieselbe Meldung.
+- Ist die Anmeldeseite nicht erreichbar (z. B. Zeitüberschreitung, Verbindungs- oder HTTP-Fehler), steht im Report `Login failed: URL not reachable: …` mit der genauen Ursache.
 - Wird die Anmeldung abgelehnt, steht im Report `Login failed: username or password not accepted`, und die Webseite zählt als Fehler. Wird eine Seite stattdessen auf eine Anmeldeseite umgeleitet (z. B. fehlende Berechtigung), steht `Login failed: redirected to the login page`. In beiden Fällen bleibt die letzte Kopie erhalten.
 - Dieselbe Prüfung gilt auch für Webseiten ohne `login`: Leitet eine Seite plötzlich auf eine Anmeldeseite um, wird das als Fehler gemeldet, statt die Anmeldeseite zu speichern.
 - Anmeldeformulare mit Captcha oder Zwei-Faktor-Anmeldung können nicht verwendet werden.
@@ -130,7 +140,7 @@ Für einen Test mit nur ein oder zwei Webseiten diese zuoberst in die Liste setz
 {
   "alpha-news": "https://example-alpha.com/de/news/",
   "STOP": "everything below is ignored",
-  "beta-dt": "https://example-beta.com/dt/"
+  "bravo-dt": "https://example-bravo.com/dt/"
 }
 ```
 
@@ -159,7 +169,7 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 | `login` | nein | `basic` (Standard, HTTP Basic) oder `wordpress` (WordPress-Anmeldeformular), siehe oben. |
 | `login_url` | nein | Adresse des Anmeldeformulars bei `wordpress`; Standard `<Webseite>/wp-login.php`. |
 | `accept_status` | nein | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten. |
-| `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, siehe unten. |
+| `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, oder zu entfernende HTML-Elemente (`elements`), siehe unten. |
 
 Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
 
@@ -172,8 +182,8 @@ Optional pro Webseite: `"accept_status": [500]` verwendet den Inhalt auch dann, 
 Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler, „Letzte Aktualisierung“), lassen sich vom Vergleich ausnehmen, getrennt nach Abschnitt der Erfassungsdatei:
 
 ```json
-"zeta-home": {
-  "url": "https://example-zeta.com/",
+"foxtrot-home": {
+  "url": "https://example-foxtrot.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Letzte Aktualisierung:"],
@@ -188,11 +198,23 @@ Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler,
 - Die Erfassungsdateien bleiben vollständig; die Regeln wirken nur beim Vergleich. Eine neue Regel wirkt deshalb auch auf bestehende Erfassungen, und wird sie entfernt, gilt wieder der volle Vergleich.
 - Fehlerhafte Regeln (falscher Typ, ungültiger regulärer Ausdruck, unbekannter Schlüssel) werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
-### Einschränkung: andere Anmeldeformulare
+#### `ignore.elements`: ganze HTML-Bereiche entfernen
 
-Neben HTTP Basic wird nur das WordPress-Anmeldeformular unterstützt.
+Seitenbereiche, die sich ständig ändern (z. B. ein Kasten „Ähnliche Beiträge“ oder eine Fusszeile mit Zählern), lassen sich als Ganzes entfernen, mit einer Liste von CSS-Selektoren:
 
-**Nicht unterstützt** werden andere Anmeldeformulare (z. B. MediaWiki, DokuWiki).
+```json
+"hotel-blog": {
+  "url": "https://example-hotel.com/blog/",
+  "ignore": {
+    "elements": ["div.source-footer", "div.prop-list"]
+  }
+}
+```
+
+- Jedes passende Element wird **mitsamt Inhalt** (bis zum zugehörigen schliessenden Tag, inklusive verschachtelter Elemente) entfernt, bevor Text, Bilder und Links extrahiert werden.
+- Selektoren: CSS-Syntax wie im Browser, z. B. `div.klassenname`, `#id`, `footer .widget`, `div[data-x="y"]`. `div.prop-list` trifft jedes `<div>`, dessen `class` `prop-list` enthält.
+- Anders als `text`/`images`/`links` wirkt diese Regel **bei der Extraktion**: Die entfernten Bereiche stehen nicht mehr in den Erfassungsdateien. Nach dem Hinzufügen (oder Entfernen) einer solchen Regel meldet der erste Lauf deshalb einmalig eine Änderung. Wer das vermeiden will, löscht vorher die alten Erfassungen der Webseite in `monitored-webpages\<Kurzname>`; der nächste Lauf ist dann ein Erstlauf.
+- Ungültige Selektoren werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
 ## Einstellungen (`settings.json`)
 
@@ -287,7 +309,7 @@ ERROR: URL not reachable: HTTP error 404 Not Found
 
 Changes were detected on the following webpages:
 
-https://example-gamma.com/doku.php
+https://example-charlie.com/doku.php
 Changed
  [Text]
   removed: old text
@@ -296,7 +318,7 @@ Changed
 
 The following webpages are unchanged:
 -  https://example-alpha.com/de/news/
--  https://example-beta.com/dt/
+-  https://example-bravo.com/dt/
 
 Run finished: 4 sites processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
@@ -321,16 +343,17 @@ Während des Laufs zeigt das Skript, welche Webseite gerade abgerufen wird, und 
 Webpages monitor – run 2026-10-22 11:00 – 26 sites
 
 [ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
-[ 2/26] https://example-beta.com/dt/ ... CHANGED (4.8 s)
+[ 2/26] https://example-bravo.com/dt/ ... CHANGED (4.8 s)
 [ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
-[ 4/26] https://example-eta.com/de/members/reports/ ... login... no change (3.3 s)
+[ 4/26] https://example-golf.com/de/members/reports/ ... login... no change (3.3 s)
 
 Writing reports ... done
-.....
+
+Terminal will be closed in 5 seconds.....
 ```
 
 - `login...` erscheint bei der Webseite, bei der sich das Skript über ein Anmeldeformular anmeldet.
-- Nach „done“ folgen fünf Punkte, einer pro Sekunde, damit die letzten Zeilen noch lesbar sind, bevor sich das Fenster schliesst.
+- Nach „done“ folgt die Meldung `Terminal will be closed in 5 seconds`; danach erscheinen fünf Punkte, einer pro Sekunde, damit die letzten Zeilen noch lesbar sind, bevor sich das Fenster schliesst.
 - Sonst erscheint nichts im Terminal; alle Details stehen in den Report-Dateien. Mit `console_progress` auf `false` werden Anzeige und Pause abgeschaltet.
 
 ### Exit-Codes

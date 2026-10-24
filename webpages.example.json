@@ -35,6 +35,14 @@
     }
   },
 
+  "_ignore_elements": "HTML elements removed with all their content before extraction (CSS selectors, e.g. 'div.class', '#id').",
+  "example-ignore-elements": {
+    "url": "https://example.org/blog/",
+    "ignore": {
+      "elements": ["div.source-footer", "div.prop-list"]
+    }
+  },
+
   "_login_env": "With HTTP Basic login. The password is stored in an environment variable (recommended).",
   "example-login-env": {
     "url": "https://example.org/internal/",

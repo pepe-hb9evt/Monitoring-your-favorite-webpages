@@ -72,16 +72,22 @@ The file lives in the project folder and is re-read on every run. It is a JSON o
 ### Long form
 
 ```json
-"beta-dt": { "url": "https://example-beta.com/dt/" }
+"bravo-dt": { "url": "https://example-bravo.com/dt/" }
 ```
 
-### With credentials (HTTP Basic)
+The following variants show what the long form is needed for.
 
-#### Password stored in an environment variable (recommended)
+### Webpages with logins
+
+Logins with HTTP Basic and the WordPress login form are supported.
+
+Other login forms (e.g. MediaWiki, DokuWiki) are **not supported**.
+
+#### Login HTTP Basic with the password stored in an environment variable (recommended)
 
 ```json
 "internal": {
-  "url": "https://example-epsilon.com/internal/",
+  "url": "https://example-echo.com/internal/",
   "username": "my-user",
   "password_env": "MONITOR_PW_INTERNAL"
 }
@@ -93,31 +99,35 @@ Set the variable once (a new terminal or a new sign-in is required afterwards):
 setx MONITOR_PW_INTERNAL "secret-password"
 ```
 
-#### Password in plain text (not recommended)
+If the environment variable is not set during the run, the webpage is skipped; the report then shows `Entry '…' skipped: environment variable '…' is not set`. This applies to all login types with `password_env`.
+
+#### Login HTTP Basic with the password in plain text (not recommended)
 
 ```json
 "private": {
-  "url": "https://example-epsilon.com/private/",
+  "url": "https://example-echo.com/private/",
   "username": "my-user",
   "password": "my-password"
 }
 ```
 
-### With a login form (WordPress)
+#### Login with a login form (WordPress)
 
 Many club and association websites use the normal WordPress login form instead of HTTP Basic. With `"login": "wordpress"` the script signs in through this form before fetching the page:
 
 ```json
 "members-reports": {
-  "url": "https://example-eta.com/de/members/reports/",
+  "url": "https://example-golf.com/de/members/reports/",
   "login": "wordpress",
   "username": "my-user",
-  "password_env": "MONITOR_PW_ETA"
+  "password_env": "MONITOR_PW_MEMBERS"
 }
 ```
 
-- `<site>/wp-login.php` is used as the address of the login form. If the website uses another address, add `"login_url": "https://example-eta.com/wp-login.php"`.
+- `<site>/wp-login.php` is used as the address of the login form. If the website uses another address, add `"login_url": "https://example-golf.com/wp-login.php"`.
 - Each login (same `login_url` and same `username`) is done once per run; further pages of the same website reuse it. The images of the page are fetched logged in as well.
+- If the login fails, it is not retried in the same run: all pages with the same login then count as errors and get the same message.
+- If the login page cannot be reached (e.g. timeout, connection or HTTP error), the report shows `Login failed: URL not reachable: …` with the exact cause.
 - If the login is refused, the report shows `Login failed: username or password not accepted`, and the webpage counts as an error. If a page is redirected to a login page instead (e.g. missing access rights), it shows `Login failed: redirected to the login page`. In both cases the last copy is kept.
 - The same check also applies to webpages without `login`: if a page suddenly redirects to a login page, this is reported as an error instead of storing the login page.
 - Login forms with a captcha or two-factor authentication cannot be used.
@@ -130,7 +140,7 @@ To test with only one or two webpages, put them at the top of the list and add a
 {
   "alpha-news": "https://example-alpha.com/de/news/",
   "STOP": "everything below is ignored",
-  "beta-dt": "https://example-beta.com/dt/"
+  "bravo-dt": "https://example-bravo.com/dt/"
 }
 ```
 
@@ -159,7 +169,7 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 | `login` | no | `basic` (default, HTTP Basic) or `wordpress` (WordPress login form), see above. |
 | `login_url` | no | Address of the login form for `wordpress`; default `<site>/wp-login.php`. |
 | `accept_status` | no | List of HTTP error codes whose content is used anyway, see below. |
-| `ignore` | no | Lines left out when comparing, see below. |
+| `ignore` | no | Lines left out when comparing, or HTML elements removed (`elements`), see below. |
 
 A faulty entry is skipped and noted in the report. If the file is missing, is not valid JSON or contains not a single valid webpage, the run ends in a controlled way with a log entry.
 
@@ -172,8 +182,8 @@ Optional per webpage: `"accept_status": [500]` uses the content even if the serv
 Optional per webpage: lines that change all the time (solar banners, counters, "Last update") can be excluded from the comparison, separately for each section of the capture file:
 
 ```json
-"zeta-home": {
-  "url": "https://example-zeta.com/",
+"foxtrot-home": {
+  "url": "https://example-foxtrot.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Last update:"],
@@ -188,11 +198,23 @@ Optional per webpage: lines that change all the time (solar banners, counters, "
 - The capture files stay complete; the rules apply only when comparing. A new rule therefore also works for existing captures, and if it is removed, the full comparison applies again.
 - Faulty rules (wrong type, invalid regular expression, unknown key) are skipped and noted in the report; the webpage itself is still monitored.
 
-### Limitation: other login forms
+#### `ignore.elements`: remove whole HTML areas
 
-Besides HTTP Basic, only the WordPress login form is supported.
+Page areas that change all the time (e.g. a "related posts" box or a footer with counters) can be removed as a whole, with a list of CSS selectors:
 
-Other login forms (e.g. MediaWiki, DokuWiki) are **not supported**.
+```json
+"hotel-blog": {
+  "url": "https://example-hotel.com/blog/",
+  "ignore": {
+    "elements": ["div.source-footer", "div.prop-list"]
+  }
+}
+```
+
+- Each matching element is removed **with all its content** (up to its own closing tag, nested elements included) before text, images and links are extracted.
+- Selectors: CSS syntax as in the browser, e.g. `div.classname`, `#id`, `footer .widget`, `div[data-x="y"]`. `div.prop-list` matches every `<div>` whose `class` contains `prop-list`.
+- Unlike `text`/`images`/`links`, this rule works **during extraction**: the removed areas are no longer in the capture files. After adding (or removing) such a rule, the first run therefore reports a change once. To avoid this, delete the old captures of the webpage in `monitored-webpages\<shortname>` beforehand; the next run is then a first run.
+- Invalid selectors are skipped and noted in the report; the webpage itself is still monitored.
 
 ## Settings (`settings.json`)
 
@@ -285,7 +307,7 @@ ERROR: URL not reachable: HTTP error 404 Not Found
 
 Changes were detected on the following webpages:
 
-https://example-gamma.com/doku.php
+https://example-charlie.com/doku.php
 Changed
  [Text]
   removed: old text
@@ -294,7 +316,7 @@ Changed
 
 The following webpages are unchanged:
 -  https://example-alpha.com/de/news/
--  https://example-beta.com/dt/
+-  https://example-bravo.com/dt/
 
 Run finished: 4 sites processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
@@ -319,16 +341,17 @@ While running, the script shows which webpage is being fetched and the result:
 Webpages monitor – run 2026-10-22 11:00 – 26 sites
 
 [ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
-[ 2/26] https://example-beta.com/dt/ ... CHANGED (4.8 s)
+[ 2/26] https://example-bravo.com/dt/ ... CHANGED (4.8 s)
 [ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
-[ 4/26] https://example-eta.com/de/members/reports/ ... login... no change (3.3 s)
+[ 4/26] https://example-golf.com/de/members/reports/ ... login... no change (3.3 s)
 
 Writing reports ... done
-.....
+
+Terminal will be closed in 5 seconds.....
 ```
 
 - `login...` appears for the webpage at which the script signs in through a login form.
-- After "done", five dots follow, one per second, so the last lines can still be read before the window closes.
+- After "done" the message `Terminal will be closed in 5 seconds` follow; then five dots appear, one per second, so the last lines can still be read before the window closes.
 - Nothing else is written to the terminal; all details are in the report files. With `console_progress` set to `false`, the display and the pause are switched off.
 
 ### Exit codes
