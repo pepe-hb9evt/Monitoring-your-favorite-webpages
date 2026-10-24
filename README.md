@@ -67,7 +67,7 @@ The webpages to monitor are entered in `webpages.json`:
 {
   "alpha-news": "https://example-alpha.com/de/news/",
   "internal": {
-    "url": "https://example-epsilon.com/internal/",
+    "url": "https://example-echo.com/internal/",
     "username": "my-user",
     "password_env": "MONITOR_PW_INTERNAL"
   }
@@ -105,8 +105,9 @@ Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#ou
 
 ## Security
 
-- `webpages.json` can contain passwords and is excluded in `.gitignore` – never commit it.
-- Prefer `password_env` over `password`; this way the password is not stored in plain text in the file. Passwords never appear in the reports.
+- `webpages.json` reveals which webpages you monitor and can contain passwords. Therefore this file is excluded in `.gitignore`. Never commit this file.
+- `password_env` is preferable to `password`, because then no passwords are stored in plain text in the file.
+- The reports list the URLs of the webpages, but passwords are never shown.
 
 ## License
 

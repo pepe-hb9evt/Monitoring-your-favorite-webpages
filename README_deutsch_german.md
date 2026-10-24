@@ -67,7 +67,7 @@ Die zu überwachenden Webseiten werden in `webpages.json` eingetragen:
 {
   "alpha-news": "https://example-alpha.com/de/news/",
   "internal": {
-    "url": "https://example-epsilon.com/internal/",
+    "url": "https://example-echo.com/internal/",
     "username": "my-user",
     "password_env": "MONITOR_PW_INTERNAL"
   }
@@ -105,8 +105,9 @@ Aufbau der Reports und Exit-Codes: [DOCUMENTATION_deutsch_german.md → Ausgabe]
 
 ## Sicherheit
 
-- `webpages.json` kann Passwörter enthalten und ist in `.gitignore` ausgeschlossen – nie committen.
-- `password_env` gegenüber `password` bevorzugen; so steht das Passwort nicht im Klartext in der Datei. Passwörter erscheinen nie in den Reports.
+- `webpages.json` gibt Auskunft, welche Webseiten du beobachtest, und kann Passwörter enthalten. Deshalb ist diese Datei in `.gitignore` ausgeschlossen. Niemals diese Datei committen.
+- `password_env` ist gegenüber `password` zu bevorzugen, da so keine Passwörter im Klartext in der Datei stehen.
+- In den Reports sind die URL der Webseiten aufgelistet, doch niemals werden Passwörter genannt.
 
 ## Lizenz
 
