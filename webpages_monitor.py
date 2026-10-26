@@ -1,3 +1,18 @@
+"""
+Project:
+    Monitoring your favorite webpages
+
+Source code and documentation on GitHub:
+    https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages
+
+License:
+    MIT
+
+Authors
+    Pepe HB9EVT, https://github.com/pepe-hb9evt
+    Claude (Anthropic) (AI in 'Large Language Model' mode)
+"""
+
 #!/usr/bin/env python3
 r"""Webpages monitor: fetches pages, extracts the visible content, stores copies and compares them.
 
