@@ -11,6 +11,9 @@ Dies ist eine ausführliche Dokumentation des zugehörigen Python-Skripts. Für 
 - [So funktioniert es](#so-funktioniert-es)
 - [Webseiten-Liste (`webpages.json`)](#webseiten-liste-webpagesjson)
 - [Einstellungen (`settings.json`)](#einstellungen-settingsjson)
+- [Zeitplan: stündlicher Start und Prüfintervall](#zeitplan-stündlicher-start-und-prüfintervall)
+- [Mail-Versand durch das Skript](#mail-versand-durch-das-skript)
+- [Dev-Modus: sichtbares Terminal-Fenster](#dev-modus-sichtbares-terminal-fenster)
 - [Geplante Läufe unter Windows (Aufgabenplanung)](#geplante-läufe-unter-windows-aufgabenplanung)
 - [Ausgabe](#ausgabe)
 - [Was die aktuelle Version nicht kann](#was-die-aktuelle-version-nicht-kann)
@@ -157,6 +160,10 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 "_comment": "Eine Notiz"
 ```
 
+Das gilt für alle JSON-Dateien des Projekts (`webpages.json`, `settings.json`, `secrets.json`) und auf jeder Ebene, z. B. auch innerhalb eines Webseiten-Eintrags, innerhalb von `ignore` oder innerhalb von `smtp`. Ein Kommentar-Schlüssel darf mehrfach vorkommen.
+
+Jeder andere nicht erwartete Schlüssel (z. B. ein vertipptes `"pasword"`) wird ebenfalls ignoriert, aber immer im Report als `ERROR: … unknown key …` vermerkt. Der Lauf wird nicht abgebrochen, und die Webseite wird weiter überwacht.
+
 ### Regeln
 
 | Feld | Pflicht | Beschreibung |
@@ -171,7 +178,7 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 | `accept_status` | nein | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten. |
 | `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, oder zu entfernende HTML-Elemente (`elements`), siehe unten. |
 
-Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
+Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Unbekannte Schlüssel in einem Eintrag werden nur vermerkt; der Eintrag wird trotzdem verwendet. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
 
 ### `accept_status`
 
@@ -237,10 +244,88 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 | `image_max_bytes` | `5000000` | Max. gelesene Bytes pro Bild |
 | `image_timeout_seconds` | `15` | Zeitlimit pro Bild |
 | `console_progress` | `true` | Fortschritt pro Webseite im Terminal-Fenster anzeigen |
+| `check_interval_hours` | `1` | Prüfung alle N Stunden: `1`, `2`, `3`, `4`, `6`, `8`, `12` oder `24` (siehe [Zeitplan](#zeitplan-stündlicher-start-und-prüfintervall)) |
+| `check_anchor_hour` | `0` | Stunde (0–23), ab der das Prüfraster beginnt |
+| `mail_mode` | `none` | `none` = das Skript versendet keine Mail, `script` = das Skript versendet den Daily Report per SMTP (siehe [Mail](#mail-versand-durch-das-skript)) |
+| `mail_condition` | `always` | `always` = Mail nach jeder Prüfung, `on_change` = nur wenn eine Änderung oder ein Fehler festgestellt wurde |
+| `smtp` | Gmail, Port 587, STARTTLS | SMTP-Server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
+| `mail` | – | `sender`, `recipients` (Liste), `subject_prefix` (Standard `[Webmonitoring]`) |
+| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (Standard `60`), siehe [Dev-Modus](#dev-modus-sichtbares-terminal-fenster) |
 
-Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis.
+Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis. Schlüssel, die mit `_` beginnen, sind Kommentare (siehe [Kommentare](#kommentare)). Unbekannte Schlüssel in `secrets.json` werden vermerkt, wenn die Datei für eine Mail gelesen wird.
+
+## Zeitplan: stündlicher Start und Prüfintervall
+
+Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfung aller Webseiten fällig ist:
+
+- **Auf dem Prüfraster:** Geprüft wird zu den Stunden `check_anchor_hour + n × check_interval_hours`. Beispiel: `"check_interval_hours": 6` und `"check_anchor_hour": 5` ergeben Prüfungen um 05:00, 11:00, 17:00 und 23:00 Uhr.
+- **Nachholen:** War der Computer zu einer Rasterstunde ausgeschaltet, wird beim nächsten stündlichen Start geprüft, sobald die letzte Prüfung älter als das Intervall ist. Der Zeitpunkt der letzten Prüfung wird aus `REPORT-of-every-run-last-3-days.txt` gelesen.
+- **Keine Prüfung fällig:** Das Skript endet sofort mit Exit-Code 0. Es wird nichts in die Reports geschrieben, keine Mail versendet und kein Fenster geöffnet.
+- Mit `"check_interval_hours": 1` (Standard) ist jeder Start eine Prüfung, wie in früheren Versionen.
+- `python webpages_monitor.py --force` prüft sofort, unabhängig vom Zeitplan.
+
+### Kommandozeilen-Optionen
+
+| Option | Bedeutung |
+|---|---|
+| *(keine)* | Prüfen, falls laut Zeitplan fällig |
+| `--force` | Sofort prüfen, auch wenn keine Prüfung fällig ist |
+| `--test-mail` | Testmail senden (Inhalt: aktueller Daily Report) und beenden; funktioniert auch mit `"mail_mode": "none"` |
+
+## Mail-Versand durch das Skript
+
+Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#optional-benachrichtigung-mit-claude)) kann das Skript den Daily Report selbst per Mail versenden.
+
+1. In `settings.json`: `"mail_mode": "script"` setzen und `smtp` sowie `mail` ausfüllen:
+
+   ```json
+   "mail_mode": "script",
+   "mail_condition": "always",
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
+   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webmonitoring]" }
+   ```
+
+2. `secrets.example.json` nach `secrets.json` kopieren und das SMTP-Passwort eintragen. Bei Gmail ist das ein *App-Passwort* (Google-Konto → Sicherheit → Bestätigung in zwei Schritten → App-Passwörter), nicht das normale Kontopasswort.
+3. Testen: `python webpages_monitor.py --test-mail`
+
+Verhalten:
+
+- Die Mail wird nach jeder Prüfung versendet; der Text ist der Inhalt von `REPORT-daily-summary.txt`. Der Betreff nennt die Anzahl geänderter Webseiten und Fehler, z. B. `[Webmonitoring] 2 changed, 0 errors (26 sites, run 2026-10-22 11:00)`.
+- `"mail_condition": "on_change"` versendet nur dann eine Mail, wenn eine Änderung oder ein Fehler festgestellt wurde (Exit-Code 1 oder 2). Erstläufe allein zählen nicht als Änderung.
+- Das Ergebnis wird am Ende des Laufs in `REPORT-of-every-run-last-3-days.txt` vermerkt (`Mail: daily report sent to …` oder `ERROR: Mail could not be sent: …`). Ein fehlgeschlagener Versand bricht den Lauf nie ab.
+- Mit `use_ssl: true` wird eine SMTPS-Verbindung verwendet (meist Port 465), sonst eine normale Verbindung mit STARTTLS (Port 587).
+- Es wird nur die Python-Standardbibliothek verwendet; ein zusätzliches Paket ist nicht nötig.
+
+## Dev-Modus: sichtbares Terminal-Fenster
+
+`install_task.ps1` registriert die Aufgabe mit `pythonw.exe`, das **ohne** Fenster läuft. Um die geplanten Läufe zu beobachten, wird in `settings.json` der Dev-Modus eingeschaltet:
+
+```json
+"dev_mode": { "enabled": true, "keep_open_after_run_seconds": 60 }
+```
+
+- Bei jeder fälligen Prüfung startet sich das Skript in einem sichtbaren Terminal-Fenster neu und zeigt den Fortschritt.
+- Nach dem Lauf bleibt das Fenster `keep_open_after_run_seconds` Sekunden offen; *Enter* schliesst es sofort.
+- Stündliche Starts ohne fällige Prüfung öffnen kein Fenster.
+- Die Aufgabe muss nicht neu registriert werden; zurückschalten mit `"enabled": false`.
 
 ## Geplante Läufe unter Windows (Aufgabenplanung)
+
+### Empfohlen: stündliche Aufgabe mit `install_task.ps1`
+
+In PowerShell im Projektordner:
+
+```
+.\install_task.ps1              # Aufgabe "Webpages-Monitor" registrieren / aktualisieren (jede Stunde, zur vollen Stunde)
+.\install_task.ps1 -Remove      # Aufgabe entfernen
+.\install_task.ps1 -TaskName "My-Monitor"   # anderer Aufgabenname
+```
+
+Die Aufgabe startet das Skript jede Stunde mit `pythonw.exe` (ohne Fenster); welche Stunden geprüft werden, wird mit `check_interval_hours` und `check_anchor_hour` festgelegt. Blockiert PowerShell das Skript, einmalig mit `powershell -ExecutionPolicy Bypass -File .\install_task.ps1` starten.
+
+### Alternative: feste Uhrzeiten
+
+Das Skript kann auch zu festen Uhrzeiten gestartet werden. Dann `"check_interval_hours": 1` (Standard) setzen, damit jeder Start eine Prüfung ist.
 
 Beispiel: täglich um 06:00 Uhr. Für weitere Uhrzeiten den Befehl mit anderem Namen (`/tn`) und anderer Uhrzeit (`/st`) wiederholen. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
 
@@ -355,13 +440,16 @@ Terminal will be closed in 5 seconds.....
 - `login...` erscheint bei der Webseite, bei der sich das Skript über ein Anmeldeformular anmeldet.
 - Nach „done“ folgt die Meldung `Terminal will be closed in 5 seconds`; danach erscheinen fünf Punkte, einer pro Sekunde, damit die letzten Zeilen noch lesbar sind, bevor sich das Fenster schliesst.
 - Sonst erscheint nichts im Terminal; alle Details stehen in den Report-Dateien. Mit `console_progress` auf `false` werden Anzeige und Pause abgeschaltet.
+- Mit `"mail_mode": "script"` folgt nach den Reports die Zeile `Sending mail ... done`.
+- Ist keine Prüfung fällig, erscheint nur eine Zeile, z. B. `Webpages monitor – 2026-10-22 12:00 – no check due (last check 2026-10-22 11:00, next 2026-10-22 17:00). Use --force to check now.`
+- Im Fenster des Dev-Modus ersetzt `Window closes in 60 s - press Enter to close now.` die fünf Punkte.
 
 ### Exit-Codes
 
 | Code | Bedeutung |
 |---|---|
-| 0 | Keine Änderung und keine Fehler (auch bei Erstläufen) |
-| 1 | Änderung, Fehler bei einer Webseite oder Fehler in einem Listen- oder Einstellungseintrag |
+| 0 | Keine Änderung und keine Fehler (auch bei Erstläufen) oder keine Prüfung fällig |
+| 1 | Änderung, Fehler bei einer Webseite, Fehler in einem Listen- oder Einstellungseintrag oder Mail konnte nicht versendet werden |
 | 2 | Webseiten-Liste unbrauchbar oder Programmfehler |
 
 ## Was die aktuelle Version nicht kann
@@ -396,8 +484,8 @@ Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
 
 ### Benachrichtigung und Betrieb
 
-- **Kein eigener Versand:** Das Skript schreibt nur Dateien. Mails oder andere Benachrichtigungen müssen separat eingerichtet werden (siehe [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)).
-- **Kein eigener Zeitplan:** Das Skript läuft nur, wenn es gestartet wird (z. B. über die Aufgabenplanung). Der Computer muss dafür eingeschaltet und mit dem Internet verbunden sein.
+- **Nur Mail:** Das Skript kann den Daily Report per SMTP versenden (siehe [Mail](#mail-versand-durch-das-skript)); andere Benachrichtigungen (Push, Messenger) werden nicht unterstützt. Die Mail ist reiner Text ohne Anhang.
+- **Stündlicher Start nötig:** Das Skript entscheidet selbst, zu welchen Stunden geprüft wird, muss aber gestartet werden (z. B. stündlich über die Aufgabenplanung mit `install_task.ps1`). Der Computer muss dafür eingeschaltet und mit dem Internet verbunden sein.
 - **Keine Bedienoberfläche:** Webseiten-Liste und Einstellungen werden direkt in den JSON-Dateien bearbeitet.
 - **Begrenzter Verlauf:** Der Report umfasst die letzten drei Tage, der Daily Report nur den letzten Tagesvergleich. Ältere Stände liegen nur im Archiv und müssen bei Bedarf von Hand verglichen werden.
 - **Archiv ohne Bereinigung:** Das Archiv (`archive/`) wächst dauerhaft um eine Datei pro Webseite und Tag; es wird nicht automatisch aufgeräumt.
@@ -407,4 +495,4 @@ Aktuell ist vom Autor keine Weiterentwicklung dieses Projekts geplant, um gewiss
 
 ## Optional: Benachrichtigung mit Claude
 
-Das Skript selbst versendet nichts. Bei Bedarf lässt sich in der Claude-Desktop-App eine geplante Aufgabe einrichten, die `REPORT-daily-summary.txt` nach den Läufen liest (z. B. 10 Minuten später) und per Mail versendet.
+Alternative zum [Mail-Versand durch das Skript](#mail-versand-durch-das-skript) (dann `"mail_mode": "none"` belassen, damit keine Mail doppelt versendet wird). Bei Bedarf lässt sich in der Claude-Desktop-App eine geplante Aufgabe einrichten, die `REPORT-daily-summary.txt` nach den Läufen liest (z. B. 10 Minuten später) und per Mail versendet.

@@ -1,5 +1,17 @@
 {
-  "_comment": "Template for settings.json (next to webpages_monitor.py). All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
+  "_comment": "All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
+
+
+
+  "_note1": "Template for settings.json (next to webpages_monitor.py).",
+  "_note2": "Copy this template and name it 'settings.json' and adjust.",
+  "_note3": "All files always live in the project folder (the folder of the python script).",
+  "_note4": "All keys are optional; missing values use the defaults.",
+  "_note5": "See 'DOCUMENTATION.md' for more details.",  
+  "_note6": "Keys starting with _ are comments.",
+  "_note7": "Comments must also follow the JSON format.",
+  
+  "_start": "==============================================",
 
   "webpages_file": "webpages.json",
   "report_file": "REPORT-of-every-run-last-3-days.txt",
@@ -15,5 +27,35 @@
   "image_max_count": 50,
   "image_max_bytes": 5000000,
   "image_timeout_seconds": 15,
-  "console_progress": true
+  "console_progress": true,
+
+  "_schedule": "--- Schedule: the script is started every hour (install_task.ps1); a check is done every N hours ---",
+  "_check_interval_hours": "1, 2, 3, 4, 6, 8, 12 or 24 (1 = check on every start)",
+  "check_interval_hours": 6,
+  "_check_anchor_hour": "hour of day (0-23) the grid starts from; 6 hours from 5 -> checks at 05, 11, 17, 23",
+  "check_anchor_hour": 5,
+
+  "_mail": "--- Mail sent by the script; SMTP password in secrets.json (template: secrets.example.json) ---",
+  "_mail_mode": "none = the script sends no mail, script = send the daily report by SMTP after each check",
+  "mail_mode": "none",
+  "_mail_condition": "always = after every check, on_change = only if a change or an error was detected",
+  "mail_condition": "always",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "use_starttls": true,
+    "use_ssl": false,
+    "username": "sender@example-alpha.com"
+  },
+  "mail": {
+    "sender": "sender@example-alpha.com",
+    "recipients": ["recipient@example-bravo.com"],
+    "subject_prefix": "[Webmonitoring]"
+  },
+
+  "_dev_mode": "--- enabled = true: show a terminal window also for windowless scheduled runs ---",
+  "dev_mode": {
+    "enabled": false,
+    "keep_open_after_run_seconds": 60
+  }
 }

@@ -17,7 +17,16 @@ Authors
 r"""Webpages monitor: fetches pages, extracts the visible content, stores copies and compares them.
 
 Requirements (once):  pip install -r requirements.txt
-Run:                  python webpages_monitor.py
+Run:                  python webpages_monitor.py [--force | --test-mail]
+                      --force      check now, even if no check is due according to the schedule
+                      --test-mail  send a test mail (content: current daily report) and exit
+Schedule:             the script is meant to be started every hour (install_task.ps1); a check is only
+                      done when it is due: every "check_interval_hours" hours starting at "check_anchor_hour",
+                      or as catch-up when the last check is older than the interval
+Mail:                 "mail_mode": "script" sends the daily report by SMTP after a check ("mail_condition":
+                      "always" or "on_change"); the SMTP password lives in secrets.json
+Dev mode:             "dev_mode": {"enabled": true} shows a terminal window also for windowless scheduled
+                      runs (pythonw.exe)
 Settings:             settings.json next to the script (optional, see settings.example.json)
 Site list:            <PROJECT_DIR>\webpages.json (read on every run); keys starting with _ are comments;
                       a key "STOP" ends the list (test runs: entries below it are skipped)
@@ -33,15 +42,20 @@ Ignore rules:         per site "ignore": {"elements": [CSS selector, ...]} remov
 Images:               each <img> is downloaded once per run and stored with a content hash
                       ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
 Console:              progress per webpage is shown while running (setting "console_progress")
-Exit code:            0 = no change, 1 = change or site error, 2 = configuration/program error
+Exit code:            0 = no change or no check due, 1 = change or site error, 2 = configuration/program error
 """
+import argparse
 import difflib
 import hashlib
 import json
 import os
 import re
+import smtplib
+import ssl
+import subprocess
 import sys
 import time
+from email.message import EmailMessage
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
@@ -55,6 +69,8 @@ from bs4 import BeautifulSoup, Comment
 # If the file or a key is missing, the defaults below apply.
 PROJECT_DIR = Path(__file__).resolve().parent  # all files live in the folder of the script
 SETTINGS_FILE = PROJECT_DIR / "settings.json"
+SECRETS_FILE = PROJECT_DIR / "secrets.json"  # SMTP password, never part of the repository
+PASSWORD_PLACEHOLDER = "PUT-YOUR-GMAIL-APP-PASSWORD-HERE"
 SITES_DIR = PROJECT_DIR / "monitored-webpages"  # one sub-folder per monitored webpage
 DEFAULTS = {
     "webpages_file": "webpages.json",                 # site list (file name inside the project folder)
@@ -76,12 +92,50 @@ DEFAULTS = {
     "image_max_bytes": 5000000,                 # max. bytes read per image (hash over this part)
     "image_timeout_seconds": 15,                # time limit per image
     "console_progress": True,                   # show progress per webpage in the terminal window
+    # Schedule: the script is started every hour; a check is done every N hours
+    "check_interval_hours": 1,                  # 1, 2, 3, 4, 6, 8, 12 or 24 (1 = check on every start)
+    "check_anchor_hour": 0,                     # hour of day (0-23) the check grid starts from
+    # Mail sent by this script (alternative to sending the reports by other means)
+    "mail_mode": "none",                        # "none" = the script sends no mail, "script" = send by SMTP
+    "mail_condition": "always",                 # "always" = after every check, "on_change" = only on change/error
+    "smtp": {"host": "smtp.gmail.com", "port": 587, "use_starttls": True, "use_ssl": False, "username": ""},
+    "mail": {"sender": "", "recipients": [], "subject_prefix": "[Webmonitoring]"},
+    # Dev mode: show a terminal window also for windowless scheduled runs (pythonw.exe)
+    "dev_mode": {"enabled": False, "keep_open_after_run_seconds": 60},
+}
+ALLOWED_INTERVALS = (1, 2, 3, 4, 6, 8, 12, 24)  # divisors of 24, so the grid repeats every day
+CHOICES = {"mail_mode": ("none", "script"), "mail_condition": ("always", "on_change")}
+# expected types of the keys inside the object settings
+NESTED_TYPES = {
+    "smtp": {"host": str, "port": int, "use_starttls": bool, "use_ssl": bool, "username": str},
+    "mail": {"sender": str, "recipients": list, "subject_prefix": str},
+    "dev_mode": {"enabled": bool, "keep_open_after_run_seconds": int},
 }
 SETTING_TYPES = {"webpages_file": str, "report_file": str, "daily_report_file": str, "daily_compare_hours": int,
                  "capture_keep_hours": int, "report_days": int, "max_change_lines": int,
                  "timeout_seconds": int, "user_agent": str, "ignored_url_params": list,
                  "image_hash": bool, "image_max_count": int, "image_max_bytes": int,
-                 "image_timeout_seconds": int, "console_progress": bool}
+                 "image_timeout_seconds": int, "console_progress": bool,
+                 "check_interval_hours": int, "check_anchor_hour": int, "mail_mode": str,
+                 "mail_condition": str, "smtp": dict, "mail": dict, "dev_mode": dict}
+
+
+def check_nested(key, value, problems):
+    """Return the object setting merged with its defaults; invalid inner values keep the default."""
+    merged = dict(DEFAULTS[key])
+    for inner, inner_value in value.items():
+        if inner.startswith("_"):
+            continue
+        expected = NESTED_TYPES[key].get(inner)
+        if expected is None:
+            problems.append(f"{SETTINGS_FILE.name}: unknown key '{key}.{inner}' ignored")
+        elif isinstance(inner_value, bool) != (expected is bool) or not isinstance(inner_value, expected) \
+                or (expected is int and inner_value < 0) \
+                or (expected is list and not all(isinstance(x, str) and x.strip() for x in inner_value)):
+            problems.append(f"{SETTINGS_FILE.name}: invalid value for '{key}.{inner}', default used")
+        else:
+            merged[inner] = inner_value
+    return merged
 
 
 def load_settings():
@@ -100,6 +154,22 @@ def load_settings():
             continue
         if key not in DEFAULTS:
             problems.append(f"{SETTINGS_FILE.name}: unknown key '{key}' ignored")
+        elif SETTING_TYPES[key] is dict:
+            if isinstance(value, dict):
+                cfg[key] = check_nested(key, value, problems)
+            else:
+                problems.append(f"{SETTINGS_FILE.name}: invalid value for '{key}' (object expected), default used")
+        elif key == "check_anchor_hour":
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 23:
+                cfg[key] = value
+            else:
+                problems.append(f"{SETTINGS_FILE.name}: invalid value for '{key}' (0-23), default used")
+        elif key == "check_interval_hours" and value not in ALLOWED_INTERVALS:
+            problems.append(f"{SETTINGS_FILE.name}: invalid value for '{key}' "
+                            f"(allowed: {', '.join(map(str, ALLOWED_INTERVALS))}), default used")
+        elif key in CHOICES and value not in CHOICES[key]:
+            problems.append(f"{SETTINGS_FILE.name}: invalid value for '{key}' "
+                            f"(allowed: {', '.join(CHOICES[key])}), default used")
         elif isinstance(value, bool) != (SETTING_TYPES[key] is bool) or not isinstance(value, SETTING_TYPES[key]) \
                 or (SETTING_TYPES[key] is str and not value.strip()) \
                 or (SETTING_TYPES[key] is int and value < 1) \
@@ -129,6 +199,12 @@ IMAGE_MAX_COUNT = SETTINGS["image_max_count"]
 IMAGE_MAX_BYTES = SETTINGS["image_max_bytes"]
 IMAGE_TIMEOUT = SETTINGS["image_timeout_seconds"]
 CONSOLE_PROGRESS = SETTINGS["console_progress"]
+CHECK_INTERVAL_HOURS = SETTINGS["check_interval_hours"]
+CHECK_ANCHOR_HOUR = SETTINGS["check_anchor_hour"]
+CATCH_UP_TOLERANCE = timedelta(minutes=10)  # a delayed start of the previous check still counts as on time
+MAIL_MODE = SETTINGS["mail_mode"]
+MAIL_CONDITION = SETTINGS["mail_condition"]
+DEV_MODE = SETTINGS["dev_mode"]
 PROGRESS_URL_WIDTH = 60  # longer URLs are shortened in the terminal window
 PROGRESS_ERROR_WIDTH = 80  # longer error texts are shortened in the terminal window
 CLOSING_DOTS = 5  # dots written after the run, one per CLOSING_DOT_SECONDS, before the window closes
@@ -136,6 +212,9 @@ CLOSING_DOT_SECONDS = 1
 IMAGE_CACHE = {}  # image URL -> hash, so an image used on several pages is downloaded once per run
 LOGIN_SESSIONS = {}  # (login URL, username) -> logged-in requests.Session or error text, one login per run
 LOGIN_TYPES = ("basic", "wordpress")
+SITE_KEYS = ("url", "username", "password", "password_env", "login", "login_url", "accept_status",
+             "ignore")  # allowed keys of a site entry in long form; keys starting with _ are comments
+SECRETS_KEYS = ("smtp_password",)  # allowed keys in secrets.json; keys starting with _ are comments
 STOP_KEY = "stop"  # key (any case) in webpages.json that ends the list; entries below it are skipped
 STOP_SKIPPED = None  # number of entries skipped because of STOP in the current run, None = no STOP
 WP_LOGGED_IN_COOKIE = "wordpress_logged_in_"  # prefix of the cookie WordPress sets after a successful login
@@ -485,9 +564,10 @@ def build_daily_report(now, sites, failed):
 
 
 def write_daily_report(now, lines):
-    """Replace the daily report file."""
+    """Replace the daily report file and return its content (also used as mail text)."""
     content = "\n".join([f"=== Daily report {now:%Y-%m-%d %H:%M} ===", ""] + lines).rstrip() + "\n"
     (PROJECT_DIR / DAILY_REPORT_FILE).write_text(content, encoding="utf-8")
+    return content
 
 
 # --- Site list -----------------------------------------------------------------------------
@@ -562,7 +642,7 @@ def load_sites():
         def pairs(items):
             d = {}
             for k, v in items:
-                if k in d:
+                if k in d and not k.startswith("_"):  # comment keys may appear several times
                     duplicates.append((k, d))  # d identifies the object that holds the duplicate
                 d.setdefault(k, v)  # the first entry wins
             return d
@@ -597,6 +677,11 @@ def load_sites():
             problems.append(f"URL of '{key}' invalid: {(value.get('url') if isinstance(value, dict) else value)!r} "
                             "(entry skipped; http:// or https:// expected)")
         else:
+            unknown = [k for k in value if not k.startswith("_") and k not in SITE_KEYS]
+            if unknown:  # e.g. a misspelt "pasword"; the site is still processed
+                problems.append(f"Entry '{key}': unknown {'key' if len(unknown) == 1 else 'keys'} "
+                                f"{', '.join(repr(k) for k in unknown)} ignored (allowed: {', '.join(SITE_KEYS)}; "
+                                "keys starting with _ are comments)")
             username = value.get("username")
             password = value.get("password")
             if value.get("password_env"):
@@ -766,12 +851,221 @@ def process_site(name, url, auth, now, accept_status=frozenset(), ignore=None, f
     return ["No change"] + notes, "ok"
 
 
+# --- Schedule ------------------------------------------------------------------------------
+def last_check_time():
+    """Time of the newest run in the report file, None if there is none (or the file is not readable)."""
+    path = PROJECT_DIR / REPORT_FILE
+    newest = None
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            m = HEADER.match(line)
+            if m:
+                when = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M")
+                newest = when if newest is None or when > newest else newest
+    except Exception:
+        return None
+    return newest
+
+
+def next_grid_time(now):
+    """Next full hour on the check grid after now."""
+    candidate = now.replace(minute=0) + timedelta(hours=1)
+    while (candidate.hour - CHECK_ANCHOR_HOUR) % CHECK_INTERVAL_HOURS:
+        candidate += timedelta(hours=1)
+    return candidate
+
+
+def check_due(now):
+    """Return (due, reason). Due on the grid hour (anchor + n * interval) or as catch-up when the
+    last check is older than the interval (e.g. the computer was switched off at the grid hour)."""
+    if (now.hour - CHECK_ANCHOR_HOUR) % CHECK_INTERVAL_HOURS == 0:
+        return True, "scheduled check"
+    last = last_check_time()
+    if last is None:
+        return True, "catch-up check (no previous check found)"
+    if now - last >= timedelta(hours=CHECK_INTERVAL_HOURS) - CATCH_UP_TOLERANCE:
+        return True, f"catch-up check (last check {interval_text(now - last)} ago)"
+    return False, f"no check due (last check {last:%Y-%m-%d %H:%M}, next {next_grid_time(now):%Y-%m-%d %H:%M})"
+
+
+# --- Mail ----------------------------------------------------------------------------------
+SECRETS_PROBLEMS = []  # notes about secrets.json (unknown keys), filled when the file is read
+
+
+def load_password():
+    """SMTP password from secrets.json; raises RuntimeError with a readable text if it is missing.
+    Unknown keys (not starting with _) are noted in SECRETS_PROBLEMS."""
+    SECRETS_PROBLEMS.clear()
+    try:
+        data = json.loads(SECRETS_FILE.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        raise RuntimeError(f"{SECRETS_FILE.name} missing - copy secrets.example.json and fill in the password")
+    except Exception as e:
+        raise RuntimeError(f"{SECRETS_FILE.name} not readable: {e}")
+    if not isinstance(data, dict):
+        raise RuntimeError(f"{SECRETS_FILE.name}: a JSON object is expected")
+    for key in data:
+        if not key.startswith("_") and key not in SECRETS_KEYS:
+            SECRETS_PROBLEMS.append(f"{SECRETS_FILE.name}: unknown key '{key}' ignored "
+                                    f"(allowed: {', '.join(SECRETS_KEYS)})")
+    password = data.get("smtp_password", "")
+    if not isinstance(password, str) or not password.strip() or password == PASSWORD_PLACEHOLDER:
+        raise RuntimeError(f"SMTP password missing - fill in {SECRETS_FILE.name}")
+    return password
+
+
+def send_mail(subject, body):
+    """Send a plain text mail with the SMTP settings. Raises an exception on failure.
+    Returns the recipient list as text (for the report)."""
+    smtp_cfg, mail_cfg = SETTINGS["smtp"], SETTINGS["mail"]
+    if not mail_cfg["sender"].strip():
+        raise RuntimeError(f"{SETTINGS_FILE.name}: 'mail.sender' missing")
+    if not mail_cfg["recipients"]:
+        raise RuntimeError(f"{SETTINGS_FILE.name}: 'mail.recipients' missing")
+    if not smtp_cfg["host"].strip() or not smtp_cfg["port"]:
+        raise RuntimeError(f"{SETTINGS_FILE.name}: 'smtp.host' or 'smtp.port' missing")
+    password = load_password()
+    msg = EmailMessage()
+    msg["From"] = mail_cfg["sender"]
+    msg["To"] = ", ".join(mail_cfg["recipients"])
+    msg["Subject"] = f"{mail_cfg['subject_prefix'].strip()} {subject}".strip()
+    msg.set_content(body)
+    username = smtp_cfg["username"].strip() or mail_cfg["sender"]
+    context = ssl.create_default_context()
+    if smtp_cfg["use_ssl"]:
+        with smtplib.SMTP_SSL(smtp_cfg["host"], smtp_cfg["port"], context=context, timeout=30) as server:
+            server.login(username, password)
+            server.send_message(msg)
+    else:
+        with smtplib.SMTP(smtp_cfg["host"], smtp_cfg["port"], timeout=30) as server:
+            if smtp_cfg["use_starttls"]:
+                server.starttls(context=context)
+            server.login(username, password)
+            server.send_message(msg)
+    return msg["To"]
+
+
+def mail_after_check(subject, body, has_news):
+    """Send the daily report after a check according to mail_mode/mail_condition.
+    Return the lines for the run report (empty if no mail is configured)."""
+    if MAIL_MODE != "script":
+        return []
+    if MAIL_CONDITION == "on_change" and not has_news:
+        return ["Mail: not sent (no change and no error, mail_condition = on_change)"]
+    progress("Sending mail ... ", end="")
+    try:
+        recipients = send_mail(subject, body)
+    except Exception as e:
+        progress("failed")
+        return [f"ERROR: Mail could not be sent: {type(e).__name__}: {e}"] + [f"ERROR: {m}" for m in SECRETS_PROBLEMS]
+    progress("done")
+    return [f"Mail: daily report sent to {recipients}"] + [f"ERROR: {m}" for m in SECRETS_PROBLEMS]
+
+
+def send_test_mail(now):
+    """--test-mail: send the current daily report (or a short text) and report the result."""
+    path = PROJECT_DIR / DAILY_REPORT_FILE
+    try:
+        report = path.read_text(encoding="utf-8")
+    except Exception:
+        report = f"({path.name} not available yet)\n"
+    body = (f"Test mail of the webpages monitor, sent {now:%Y-%m-%d %H:%M}.\n"
+            f"mail_mode = {MAIL_MODE}, mail_condition = {MAIL_CONDITION}\n\n"
+            f"Current content of {path.name}:\n\n{report}")
+    try:
+        recipients = send_mail("Test mail", body)
+    except Exception as e:
+        print(f"ERROR: test mail could not be sent: {type(e).__name__}: {e}")
+        for message in SECRETS_PROBLEMS + SETTINGS_PROBLEMS:
+            print(f"ERROR: {message}")
+        return 2
+    print(f"Test mail sent to {recipients}")
+    for message in SECRETS_PROBLEMS + SETTINGS_PROBLEMS:
+        print(f"ERROR: {message}")
+    return 1 if SECRETS_PROBLEMS or SETTINGS_PROBLEMS else 0
+
+
+# --- Dev mode ------------------------------------------------------------------------------
+def has_console():
+    """False for windowless runs (pythonw.exe has no stdout)."""
+    return sys.stdout is not None
+
+
+def relaunch_in_console():
+    """Start this script again in a new terminal window (Windows only). True if it was started."""
+    if os.name != "nt":
+        return False
+    python = Path(sys.executable).with_name("python.exe")  # pythonw.exe has no window
+    if not python.exists():
+        return False
+    try:
+        subprocess.Popen([str(python), str(Path(__file__).resolve()), *sys.argv[1:], "--dev-window"],
+                         cwd=str(PROJECT_DIR), creationflags=subprocess.CREATE_NEW_CONSOLE, close_fds=True)
+        return True
+    except OSError:
+        return False
+
+
+def wait_before_closing(seconds):
+    """Keep the dev mode window open for some seconds; Enter closes it at once."""
+    print(f"\nWindow closes in {seconds} s - press Enter to close now.", flush=True)
+    deadline = time.monotonic() + seconds
+    if os.name == "nt":
+        import msvcrt
+        while time.monotonic() < deadline:
+            if msvcrt.kbhit() and msvcrt.getwch() in ("\r", "\n"):
+                return
+            time.sleep(0.1)
+    else:
+        time.sleep(max(0, deadline - time.monotonic()))
+
+
+def closing_pause(dev_window):
+    """Short pause before the terminal window closes, so the final lines can still be read."""
+    if dev_window:
+        wait_before_closing(DEV_MODE["keep_open_after_run_seconds"])
+    elif CONSOLE_PROGRESS and has_console():  # visible dots
+        progress()  # empty line
+        progress(f"Terminal will be closed in {CLOSING_DOTS * CLOSING_DOT_SECONDS} seconds", end="")
+        for _ in range(CLOSING_DOTS):
+            time.sleep(CLOSING_DOT_SECONDS)
+            progress(".", end="")
+        progress()
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Webpages monitor")
+    parser.add_argument("--force", action="store_true", help="check now, even if no check is due")
+    parser.add_argument("--test-mail", action="store_true", help="send a test mail and exit")
+    parser.add_argument("--dev-window", action="store_true", help=argparse.SUPPRESS)  # set by dev mode
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     now = datetime.now().replace(second=0, microsecond=0)  # capture files have minute resolution
     try:
         sys.stdout.reconfigure(errors="replace")  # special characters must not break the console output
     except Exception:
         pass
+    if args.test_mail:
+        return send_test_mail(now)
+    if not (args.force or args.dev_window):  # the dev window was started for a due check
+        due, reason = check_due(now)
+        if not due:
+            progress(f"Webpages monitor – {now:%Y-%m-%d %H:%M} – {reason}. Use --force to check now.")
+            return 0
+    if DEV_MODE["enabled"] and not has_console() and not args.dev_window:
+        # scheduled run without a console (pythonw): hand over to a visible window
+        if relaunch_in_console():
+            return 0
+    code = run_check(now)
+    closing_pause(args.dev_window)
+    return code
+
+
+def run_check(now):
+    """One complete check of all sites: fetch, compare, write the reports, send the mail."""
     try:
         PROJECT_DIR.mkdir(parents=True, exist_ok=True)
         SITES_DIR.mkdir(exist_ok=True)  # create "monitored-webpages" if it does not exist yet
@@ -779,6 +1073,7 @@ def main():
         print(f"ERROR: folder {SITES_DIR} not available: {e}", file=sys.stderr)
         return 2
     short, daily, code = [], None, 0
+    mail_subject = "Run failed"
     try:
         sites, fatal, entry_problems = load_sites()
         stop_note = []
@@ -793,6 +1088,7 @@ def main():
                 short += [str(SETTINGS_FILE)] + [f"ERROR: {m}" for m in SETTINGS_PROBLEMS] + [""]
             short.append("Run finished in a controlled way: site list faulty, no site fetched")
             code = 2
+            mail_subject = "ERROR: site list faulty, no site fetched"
         else:
             no_comparison, changed, unchanged = [], [], []
             if SETTINGS_PROBLEMS:
@@ -836,31 +1132,35 @@ def main():
                          f"{len(entry_problems) + len(SETTINGS_PROBLEMS)} list/settings errors")
             code = 1 if (count["changed"] or count["error"] or entry_problems or SETTINGS_PROBLEMS) else 0
             daily = stop_note + build_daily_report(now, sites, failed)
+            mail_subject = (f"{count['changed']} changed, {count['error']} errors"
+                            f" ({len(sites)} sites, run {now:%Y-%m-%d %H:%M})")
     except Exception as e:
         short += ["ERROR: Unexpected error during the run: " + f"{type(e).__name__}: {e}", "",
                   "Run finished in a controlled way after an unexpected error"]
         code = 2
     progress("\nWriting reports ... ", end="")
-    report_errors = []
+    report_errors, daily_text = [], None
+    try:
+        # on fatal errors: same text as the run
+        daily_text = write_daily_report(now, daily if daily is not None else short)
+    except Exception as e:
+        report_errors.append(f"ERROR: daily report could not be written: {e}")
+    progress("failed" if report_errors else "done")
+    if daily_text is None:  # the mail carries the same text as the daily report file
+        daily_text = "\n".join([f"=== Daily report {now:%Y-%m-%d %H:%M} ===", ""]
+                                + (daily if daily is not None else short)).rstrip() + "\n"
+    mail_lines = mail_after_check(mail_subject, daily_text, code != 0)
+    if mail_lines:
+        short += [""] + mail_lines
     try:
         write_report(now, short)
     except Exception as e:
         report_errors.append(f"ERROR: report could not be written: {e}")
-    try:
-        write_daily_report(now, daily if daily is not None else short)  # on fatal errors: same text as the run
-    except Exception as e:
-        report_errors.append(f"ERROR: daily report could not be written: {e}")
-    progress("failed" if report_errors else "done")
     for message in report_errors:
         print(message, file=sys.stderr)
         code = 2
-    if CONSOLE_PROGRESS:  # short pause with visible dots so the final lines can still be read
-        progress()  # empty line
-        progress(f"Terminal will be closed in {CLOSING_DOTS * CLOSING_DOT_SECONDS} seconds", end="")
-        for _ in range(CLOSING_DOTS):
-            time.sleep(CLOSING_DOT_SECONDS)
-            progress(".", end="")
-        progress()
+    if any(line.startswith("ERROR:") for line in mail_lines):
+        code = max(code, 1)
     return code
 
 

@@ -11,6 +11,9 @@ This is the detailed documentation of the Python script. For a short overview, s
 - [How it works](#how-it-works)
 - [Site list (`webpages.json`)](#site-list-webpagesjson)
 - [Settings (`settings.json`)](#settings-settingsjson)
+- [Schedule: hourly start and check interval](#schedule-hourly-start-and-check-interval)
+- [E-mail sent by the script](#e-mail-sent-by-the-script)
+- [Dev mode: visible terminal window](#dev-mode-visible-terminal-window)
 - [Scheduled runs on Windows (Task Scheduler)](#scheduled-runs-on-windows-task-scheduler)
 - [Output](#output)
 - [What the current version cannot do](#what-the-current-version-cannot-do)
@@ -157,6 +160,10 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 "_comment": "A note"
 ```
 
+This applies to all JSON files of the project (`webpages.json`, `settings.json`, `secrets.json`) and on every level, e.g. also inside a site entry, inside `ignore` or inside `smtp`. A comment key may appear several times.
+
+Every other key that is not expected (e.g. a misspelt `"pasword"`) is ignored as well, but always noted in the report as `ERROR: … unknown key …`. The run is not stopped, and the webpage is still monitored.
+
 ### Rules
 
 | Field | Required | Description |
@@ -171,7 +178,7 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 | `accept_status` | no | List of HTTP error codes whose content is used anyway, see below. |
 | `ignore` | no | Lines left out when comparing, or HTML elements removed (`elements`), see below. |
 
-A faulty entry is skipped and noted in the report. If the file is missing, is not valid JSON or contains not a single valid webpage, the run ends in a controlled way with a log entry.
+A faulty entry is skipped and noted in the report. Unknown keys in an entry are only noted; the entry is still used. If the file is missing, is not valid JSON or contains not a single valid webpage, the run ends in a controlled way with a log entry.
 
 ### `accept_status`
 
@@ -237,10 +244,88 @@ Optional. Lives next to the script; see [`settings.example.json`](settings.examp
 | `image_max_bytes` | `5000000` | Max. bytes read per image |
 | `image_timeout_seconds` | `15` | Time limit per image |
 | `console_progress` | `true` | Show the progress per webpage in the terminal window |
+| `check_interval_hours` | `1` | Check every N hours: `1`, `2`, `3`, `4`, `6`, `8`, `12` or `24` (see [Schedule](#schedule-hourly-start-and-check-interval)) |
+| `check_anchor_hour` | `0` | Hour of day (0–23) the check grid starts from |
+| `mail_mode` | `none` | `none` = the script sends no mail, `script` = the script sends the daily report by SMTP (see [E-mail](#e-mail-sent-by-the-script)) |
+| `mail_condition` | `always` | `always` = mail after every check, `on_change` = only if a change or an error was detected |
+| `smtp` | Gmail, port 587, STARTTLS | SMTP server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
+| `mail` | – | `sender`, `recipients` (list), `subject_prefix` (default `[Webmonitoring]`) |
+| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (default `60`), see [Dev mode](#dev-mode-visible-terminal-window) |
 
-Invalid values or unknown keys never stop a run: the default value applies, and the report shows a note.
+Invalid values or unknown keys never stop a run: the default value applies, and the report shows a note. Keys starting with `_` are comments (see [Comments](#comments)). Unknown keys in `secrets.json` are noted when the file is read for a mail.
+
+## Schedule: hourly start and check interval
+
+The script is meant to be **started every hour**. It decides itself whether a check of all webpages is due:
+
+- **On the check grid:** a check is done at the hours `check_anchor_hour + n × check_interval_hours`. Example: `"check_interval_hours": 6` and `"check_anchor_hour": 5` give checks at 05:00, 11:00, 17:00 and 23:00.
+- **Catch-up:** if the computer was switched off at a grid hour, the check is done at the next hourly start as soon as the last check is older than the interval. The time of the last check is taken from `REPORT-of-every-run-last-3-days.txt`.
+- **No check due:** the script ends at once with exit code 0. Nothing is written to the reports, no mail is sent and no window is opened.
+- With `"check_interval_hours": 1` (default) every start is a check, as in earlier versions.
+- `python webpages_monitor.py --force` checks at once, regardless of the schedule.
+
+### Command line options
+
+| Option | Meaning |
+|---|---|
+| *(none)* | Check if due according to the schedule |
+| `--force` | Check now, even if no check is due |
+| `--test-mail` | Send a test mail (content: current daily report) and exit; works also with `"mail_mode": "none"` |
+
+## E-mail sent by the script
+
+As an alternative to sending the reports by other means (e.g. [with Claude](#optional-notification-with-claude)), the script can send the daily report by e-mail itself.
+
+1. In `settings.json`: set `"mail_mode": "script"` and fill in `smtp` and `mail`:
+
+   ```json
+   "mail_mode": "script",
+   "mail_condition": "always",
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
+   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webmonitoring]" }
+   ```
+
+2. Copy `secrets.example.json` to `secrets.json` and enter the SMTP password. For Gmail, this is an *app password* (Google account → Security → 2-step verification → App passwords), not the normal account password.
+3. Test: `python webpages_monitor.py --test-mail`
+
+Behaviour:
+
+- The mail is sent after each check; the text is the content of `REPORT-daily-summary.txt`. The subject shows the number of changed webpages and errors, e.g. `[Webmonitoring] 2 changed, 0 errors (26 sites, run 2026-10-22 11:00)`.
+- `"mail_condition": "on_change"` sends a mail only if a change or an error was detected (exit code 1 or 2). First runs alone do not count as a change.
+- The result is noted at the end of the run in `REPORT-of-every-run-last-3-days.txt` (`Mail: daily report sent to …` or `ERROR: Mail could not be sent: …`). A failed mail never stops the run.
+- With `use_ssl: true` an SMTPS connection is used (usually port 465), otherwise a normal connection with STARTTLS (port 587).
+- Only the Python standard library is used; no additional package is needed.
+
+## Dev mode: visible terminal window
+
+`install_task.ps1` registers the task with `pythonw.exe`, which runs **without** a window. To watch the scheduled runs, switch on the dev mode in `settings.json`:
+
+```json
+"dev_mode": { "enabled": true, "keep_open_after_run_seconds": 60 }
+```
+
+- For each due check, the script starts itself again in a visible terminal window and shows the progress.
+- After the run, the window stays open for `keep_open_after_run_seconds` seconds; *Enter* closes it at once.
+- Hourly starts without a due check open no window.
+- The task does not have to be registered again; switch back with `"enabled": false`.
 
 ## Scheduled runs on Windows (Task Scheduler)
+
+### Recommended: hourly task with `install_task.ps1`
+
+In PowerShell, in the project folder:
+
+```
+.\install_task.ps1              # register / update the task "Webpages-Monitor" (every hour, at the full hour)
+.\install_task.ps1 -Remove      # remove the task
+.\install_task.ps1 -TaskName "My-Monitor"   # other task name
+```
+
+The task starts the script every hour with `pythonw.exe` (no window); which hours are checked is set with `check_interval_hours` and `check_anchor_hour`. If PowerShell blocks the script, start it once with `powershell -ExecutionPolicy Bypass -File .\install_task.ps1`.
+
+### Alternative: fixed times
+
+The script can also be started at fixed times. In this case set `"check_interval_hours": 1` (default), so that every start is a check.
 
 Example: daily at 06:00. For further times, repeat the command with another name (`/tn`) and another time (`/st`). Adjust the paths; `where python` shows the full path to `python.exe`.
 
@@ -353,13 +438,16 @@ Terminal will be closed in 5 seconds.....
 - `login...` appears for the webpage at which the script signs in through a login form.
 - After "done" the message `Terminal will be closed in 5 seconds` follow; then five dots appear, one per second, so the last lines can still be read before the window closes.
 - Nothing else is written to the terminal; all details are in the report files. With `console_progress` set to `false`, the display and the pause are switched off.
+- With `"mail_mode": "script"`, the line `Sending mail ... done` follows after the reports.
+- If no check is due, only one line appears, e.g. `Webpages monitor – 2026-10-22 12:00 – no check due (last check 2026-10-22 11:00, next 2026-10-22 17:00). Use --force to check now.`
+- In the dev mode window, the five dots are replaced by `Window closes in 60 s - press Enter to close now.`
 
 ### Exit codes
 
 | Code | Meaning |
 |---|---|
-| 0 | No change and no errors (also for first runs) |
-| 1 | Change, error at a webpage, or error in a list or settings entry |
+| 0 | No change and no errors (also for first runs), or no check due |
+| 1 | Change, error at a webpage, error in a list or settings entry, or mail could not be sent |
 | 2 | Site list unusable or program error |
 
 ## What the current version cannot do
@@ -394,8 +482,8 @@ The script does not support the following points, either intentionally or for th
 
 ### Notification and operation
 
-- **No sending of its own:** the script only writes files. E-mails or other notifications have to be set up separately (see [Optional: notification with Claude](#optional-notification-with-claude)).
-- **No schedule of its own:** the script only runs when it is started (e.g. by the Task Scheduler). The computer must be switched on and connected to the internet.
+- **E-mail only:** the script can send the daily report by SMTP (see [E-mail](#e-mail-sent-by-the-script)); other notifications (push, messenger) are not supported. The mail is plain text without attachments.
+- **Hourly start needed:** the script decides itself which hours are checked, but it has to be started (e.g. hourly by the Task Scheduler with `install_task.ps1`). The computer must be switched on and connected to the internet.
 - **No user interface:** the site list and the settings are edited directly in the JSON files.
 - **Limited history:** the report covers the last three days, the daily report only the latest daily comparison. Older states are only in the archive and have to be compared by hand if needed.
 - **Archive without clean-up:** the archive (`archive/`) grows permanently by one file per webpage and day; it is not cleaned up automatically.
@@ -405,4 +493,4 @@ There are currently no plans by the author to develop this project further to re
 
 ## Optional: notification with Claude
 
-The script itself sends nothing. If needed, a scheduled task can be set up in the Claude desktop app that reads `REPORT-daily-summary.txt` after the runs (e.g. 10 minutes later) and sends it by e-mail.
+Alternative to the [e-mail sent by the script](#e-mail-sent-by-the-script) (keep `"mail_mode": "none"` then, so that no mail is sent twice). If needed, a scheduled task can be set up in the Claude desktop app that reads `REPORT-daily-summary.txt` after the runs (e.g. 10 minutes later) and sends it by e-mail.

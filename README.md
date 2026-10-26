@@ -17,7 +17,7 @@ The main limitations are:
 - **Fetching:** Only the HTML delivered by the server is captured – without content loaded by JavaScript, without `<iframe>` content and without the content of PDF or Word files. Pages with a captcha or browser check cannot be monitored reliably.
 - **Login:** Only HTTP Basic login and the WordPress login form; no other login forms, no "Sign in with Google/Microsoft", no two-factor authentication, no captcha.
 - **Comparison:** The script reports *what* has changed (whole lines), not *where* on the webpage. Images are only compared by their hash value: it detects *that* an image has changed, but there is no before/after view. Changes to layout, colors or fonts are not detected.
-- **Operation:** The script does not send e-mails itself and has no schedule of its own (start it e.g. with the Windows Task Scheduler). The report covers three days; the archive is not cleaned up automatically.
+- **Operation:** The script has to be started every hour (e.g. with the Windows Task Scheduler, `install_task.ps1`); it then decides itself which hours are checked. Notifications by e-mail only. The report covers three days; the archive is not cleaned up automatically.
 - **Platform:** Developed for Windows, but runs on any system with Python 3.9 or newer.
 
 All limitations in detail: [DOCUMENTATION.md → What the current version cannot do](DOCUMENTATION.md#what-the-current-version-cannot-do).
@@ -37,13 +37,16 @@ This README gives a concise overview. For the complete reference, see **[DOCUMEN
 - While running, the terminal window shows which webpage is being fetched and the result.
 - For test runs, an entry `STOP` in the site list ends the list; all following entries are skipped.
 - Faulty entries or unreachable webpages never stop the run.
+- Started every hour, the script checks only every N hours (`check_interval_hours`, e.g. 05:00, 11:00, 17:00, 23:00) and catches up on missed checks.
+- Optional: sends the daily report by e-mail itself (SMTP, e.g. Gmail), after every check or only on changes.
+- Dev mode: shows a terminal window also for the windowless scheduled runs.
 - Two text files are written on every run:
 
   - `REPORT-of-every-run-last-3-days.txt`: all runs of the last three days, newest first.
 
   - `REPORT-daily-summary.txt`: daily comparison (newest capture compared with the one that is at least 23 hours old).
 
-Various parameters can be changed in `settings.json` (file names, retention, timeout, user agent, …).
+Various parameters can be changed in `settings.json` (file names, retention, timeout, user agent, check interval, e-mail, dev mode, …).
 
 ## Requirements
 
@@ -55,7 +58,9 @@ Various parameters can be changed in `settings.json` (file names, retention, tim
 1. Copy the files into a project folder, e.g. `C:\Tools\webpages-monitor\`. All data is stored in this folder.
 2. Copy `webpages.example.json` to `webpages.json` and enter your own webpages.
 3. Optional: copy `settings.example.json` to `settings.json` and adjust values.
-4. Test once: `python webpages_monitor.py`
+4. Optional for e-mail: copy `secrets.example.json` to `secrets.json` and enter the SMTP password; test with `python webpages_monitor.py --test-mail`.
+5. Test once: `python webpages_monitor.py --force`
+6. Register the hourly task: `.\install_task.ps1` (PowerShell; if script execution is disabled, see below).
 
 The first run only saves a baseline; comparison starts with the second run.
 
@@ -79,14 +84,31 @@ All formats, rules and options are described in:
 
 ## Scheduled runs (Windows)
 
-On Windows, a job for daily execution can be added in the system app "Task Scheduler". The easiest way to create a new entry is the following command in the command prompt:
+`install_task.ps1` registers a task in the Windows Task Scheduler that starts the script every hour without a window:
 
 ```
-schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd /d C:\Tools\webpages-monitor && python webpages_monitor.py"
+.\install_task.ps1            # install / update
+.\install_task.ps1 -Remove    # uninstall
 ```
 
-Setup via the graphical interface and further notes:
-[DOCUMENTATION.md → Scheduled runs](DOCUMENTATION.md#scheduled-runs-on-windows-task-scheduler).
+If PowerShell reports that running scripts is disabled on this system, start it this way (the setting of the system remains unchanged):
+
+```
+powershell -ExecutionPolicy Bypass -File .\install_task.ps1
+powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Remove
+```
+
+Which hours are actually checked is set in `settings.json`:
+
+```json
+"check_interval_hours": 6,
+"check_anchor_hour": 5
+```
+
+This gives checks at 05:00, 11:00, 17:00 and 23:00; missed checks are caught up. `--force` checks at once. With `"dev_mode": {"enabled": true}` each check is shown in a visible terminal window.
+
+E-mail by the script (`"mail_mode": "script"`), fixed times instead of hourly starts and further notes:
+[DOCUMENTATION.md → Schedule](DOCUMENTATION.md#schedule-hourly-start-and-check-interval), [E-mail](DOCUMENTATION.md#e-mail-sent-by-the-script), [Scheduled runs](DOCUMENTATION.md#scheduled-runs-on-windows-task-scheduler).
 
 ## Output
 
@@ -95,7 +117,7 @@ The following text files are created on every run:
 - `REPORT-of-every-run-last-3-days.txt`
   Log of every run of the last three days.
 - `REPORT-daily-summary.txt`
-  Report with a daily comparison. Suitable for automatic delivery by e-mail (see DOCUMENTATION).
+  Report with a daily comparison. Can be sent by e-mail by the script itself (`"mail_mode": "script"`).
 - `monitored-webpages/<shortname>/captured_*.txt`
   All captures are kept for 48 hours.
 - `monitored-webpages/<shortname>/archive/*.txt`
@@ -106,6 +128,7 @@ Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#ou
 ## Security
 
 - `webpages.json` reveals which webpages you monitor and can contain passwords. Therefore this file is excluded in `.gitignore`. Never commit this file.
+- `secrets.json` contains the SMTP password and is also excluded in `.gitignore`. Never commit this file.
 - `password_env` is preferable to `password`, because then no passwords are stored in plain text in the file.
 - The reports list the URLs of the webpages, but passwords are never shown.
 
