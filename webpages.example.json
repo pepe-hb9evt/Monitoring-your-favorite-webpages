@@ -1,14 +1,12 @@
 {
   "_note1": "Template for webpages.json. Copy to webpages.json and adjust.",
+  "_note2": "All files always live in the project folder (the folder of the python script).",
+  "_note3": "Keys starting with _ are comments.",
+  "_note4": "Comments must also follow the JSON format.",
+  "_note5": "The key STOP causes all following keys to be ignored. Useful for test runs.",
+  "_note6": "Below are some examples of possible entries. See 'DOCUMENTATION.md' for more details.",
 
-  "_note2": "Keys starting with _ are comments.",
-
-  "_note3": "Comments must also follow the JSON format.",
-
-  "_note4": "The key STOP causes all following keys to be ignored. Useful for test runs.",
-
-  "_note5": "Below are some examples of possible entries. See 'DOCUMENTATION.md' for more details.",
-
+  "_start": "==============================================",
   
 
   "_short_form": "Short name -> URL. The short name is also the name of the data folder (allowed: letters, digits, dot, underscore, hyphen).",

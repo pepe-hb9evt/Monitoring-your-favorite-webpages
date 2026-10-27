@@ -1,8 +1,4 @@
 {
-  "_comment": "All files always live in the project folder (the folder of the script). All keys are optional; missing values use the defaults. Keys starting with _ are ignored.",
-
-
-
   "_note1": "Template for settings.json (next to webpages_monitor.py).",
   "_note2": "Copy this template and name it 'settings.json' and adjust.",
   "_note3": "All files always live in the project folder (the folder of the python script).",
@@ -34,6 +30,8 @@
   "check_interval_hours": 6,
   "_check_anchor_hour": "hour of day (0-23) the grid starts from; 6 hours from 5 -> checks at 05, 11, 17, 23",
   "check_anchor_hour": 5,
+  "_intensive_check_interval_hours": "0 = off; N = a webpage with a change is checked again after N hours (only it); without a new change it waits for the next regular check. Must be smaller than check_interval_hours",
+  "intensive_check_interval_hours": 0,
 
   "_mail": "--- Mail sent by the script; SMTP password in secrets.json (template: secrets.example.json) ---",
   "_mail_mode": "none = the script sends no mail, script = send the daily report by SMTP after each check",
@@ -50,10 +48,10 @@
   "mail": {
     "sender": "sender@example-alpha.com",
     "recipients": ["recipient@example-bravo.com"],
-    "subject_prefix": "[Webmonitoring]"
+    "subject_prefix": "[Webpage Monitoring]"
   },
 
-  "_dev_mode": "--- enabled = true: show a terminal window also for windowless scheduled runs ---",
+  "_dev_mode": "--- enabled = true: show a terminal window also for windowless scheduled runs; keep_open_after_run_seconds: pause before the window closes (also for manual starts, 0 = no pause) ---",
   "dev_mode": {
     "enabled": false,
     "keep_open_after_run_seconds": 60
