@@ -105,7 +105,7 @@ Zu welchen Stunden tatsächlich geprüft wird, legt `settings.json` fest:
 "check_anchor_hour": 5
 ```
 
-Das ergibt Prüfungen um 05:00, 11:00, 17:00 und 23:00 Uhr; verpasste Prüfungen werden nachgeholt. `--force` prüft sofort. Mit `"dev_mode": {"enabled": true}` wird jede Prüfung in einem sichtbaren Terminal-Fenster angezeigt.
+Das ergibt Prüfungen um 05:00, 11:00, 17:00 und 23:00 Uhr; verpasste Prüfungen werden nachgeholt. Mit `"intensive_check_interval_hours": 2` wird eine Webseite mit Änderung 2 Stunden später erneut geprüft (nur diese Webseite), bis keine neue Änderung mehr festgestellt wird. `--force` prüft sofort. Mit `"dev_mode": {"enabled": true}` wird jede Prüfung in einem sichtbaren Terminal-Fenster angezeigt.
 
 Mail-Versand durch das Skript (`"mail_mode": "script"`), feste Uhrzeiten statt stündlicher Starts und weitere Hinweise findest du in:
 [DOCUMENTATION_deutsch_german.md → Zeitplan](DOCUMENTATION_deutsch_german.md#zeitplan-stündlicher-start-und-prüfintervall), [Mail](DOCUMENTATION_deutsch_german.md#mail-versand-durch-das-skript), [Geplante Läufe](DOCUMENTATION_deutsch_german.md#geplante-läufe-unter-windows-aufgabenplanung).

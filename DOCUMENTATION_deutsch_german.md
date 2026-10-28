@@ -149,7 +149,7 @@ Für einen Test mit nur ein oder zwei Webseiten diese zuoberst in die Liste setz
 
 - Der Schlüssel `STOP` darf beliebig geschrieben werden (`stop`, `Stop`); der Wert ist freier Text.
 - Übersprungene Webseiten werden weder abgerufen noch geprüft; ihre gespeicherten Erfassungen bleiben unverändert.
-- Das Terminal zeigt z. B. `… – 2 sites (STOP in webpages.json: 28 sites skipped)`, und beide Reports beginnen mit `Note: STOP in webpages.json – … sites after STOP skipped`; ein vergessenes `STOP` fällt so auf.
+- Das Terminal zeigt z. B. `… – 2 webpages (STOP in webpages.json: 28 webpages skipped)`, und beide Reports beginnen mit `Note: STOP in webpages.json – … webpages after STOP skipped`; ein vergessenes `STOP` fällt so auf.
 - Um wieder die ganze Liste zu überwachen, die Zeile löschen oder in `_STOP` umbenennen.
 
 ### Kommentare
@@ -246,11 +246,12 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 | `console_progress` | `true` | Fortschritt pro Webseite im Terminal-Fenster anzeigen |
 | `check_interval_hours` | `1` | Prüfung alle N Stunden: `1`, `2`, `3`, `4`, `6`, `8`, `12` oder `24` (siehe [Zeitplan](#zeitplan-stündlicher-start-und-prüfintervall)) |
 | `check_anchor_hour` | `0` | Stunde (0–23), ab der das Prüfraster beginnt |
+| `intensive_check_interval_hours` | `0` | `0` = aus; N = geänderte Webseite nach N Stunden erneut prüfen (siehe [Intensive Prüfung](#intensive-prüfung-geänderter-webseiten)) |
 | `mail_mode` | `none` | `none` = das Skript versendet keine Mail, `script` = das Skript versendet den Daily Report per SMTP (siehe [Mail](#mail-versand-durch-das-skript)) |
 | `mail_condition` | `always` | `always` = Mail nach jeder Prüfung, `on_change` = nur wenn eine Änderung oder ein Fehler festgestellt wurde |
 | `smtp` | Gmail, Port 587, STARTTLS | SMTP-Server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
-| `mail` | – | `sender`, `recipients` (Liste), `subject_prefix` (Standard `[Webmonitoring]`) |
-| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (Standard `60`), siehe [Dev-Modus](#dev-modus-sichtbares-terminal-fenster) |
+| `mail` | – | `sender`, `recipients` (Liste), `subject_prefix` (Standard `[Webpage Monitoring]`) |
+| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (Standard `60`, gilt auch für manuelle Starts, `0` = keine Pause), siehe [Dev-Modus](#dev-modus-sichtbares-terminal-fenster) |
 
 Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis. Schlüssel, die mit `_` beginnen, sind Kommentare (siehe [Kommentare](#kommentare)). Unbekannte Schlüssel in `secrets.json` werden vermerkt, wenn die Datei für eine Mail gelesen wird.
 
@@ -259,10 +260,27 @@ Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt d
 Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfung aller Webseiten fällig ist:
 
 - **Auf dem Prüfraster:** Geprüft wird zu den Stunden `check_anchor_hour + n × check_interval_hours`. Beispiel: `"check_interval_hours": 6` und `"check_anchor_hour": 5` ergeben Prüfungen um 05:00, 11:00, 17:00 und 23:00 Uhr.
-- **Nachholen:** War der Computer zu einer Rasterstunde ausgeschaltet, wird beim nächsten stündlichen Start geprüft, sobald die letzte Prüfung älter als das Intervall ist. Der Zeitpunkt der letzten Prüfung wird aus `REPORT-of-every-run-last-3-days.txt` gelesen.
+- **Nachholen:** War der Computer zu einer Rasterstunde ausgeschaltet, wird beim nächsten stündlichen Start geprüft, sobald die letzte reguläre Prüfung älter als das Intervall ist. Der Zeitpunkt der letzten regulären Prüfung wird aus `state.json` gelesen (fehlt die Datei: aus `REPORT-of-every-run-last-3-days.txt`).
 - **Keine Prüfung fällig:** Das Skript endet sofort mit Exit-Code 0. Es wird nichts in die Reports geschrieben, keine Mail versendet und kein Fenster geöffnet.
 - Mit `"check_interval_hours": 1` (Standard) ist jeder Start eine Prüfung, wie in früheren Versionen.
 - `python webpages_monitor.py --force` prüft sofort, unabhängig vom Zeitplan.
+
+### Intensive Prüfung geänderter Webseiten
+
+Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_hours`; `0` = aus, Standard) wird eine Webseite mit festgestellter Änderung **N Stunden später** erneut geprüft – nur diese Webseite, nicht die ganze Liste:
+
+| Zeit | Beispiel: regulär alle 6 Stunden ab 04:00, intensiv alle 2 Stunden |
+|---|---|
+| 04:00 | Reguläre Prüfung aller Webseiten; Webseite A hat sich geändert → A ist im Intensiv-Modus |
+| 06:00 | Intensive Prüfung nur von A: erneut geändert → bleibt intensiv; unverändert oder Fehler → verlässt den Intensiv-Modus |
+| 08:00 | Nur wenn A um 06:00 erneut geändert war: wieder A |
+| 10:00 | Reguläre Prüfung aller Webseiten |
+
+- Fällt eine intensive Prüfung auf eine reguläre Stunde, übernimmt die reguläre Prüfung.
+- Nach einer intensiven Prüfung wird **nur bei einer erneuten Änderung** eine Mail versendet (unabhängig von `mail_condition`). Der Betreff beginnt mit `Intensive check:`, der Mail-Text nennt die Anzahl abgerufener Webseiten, z. B. `1 of 32 webpages`.
+- Im Run-Report steht `Intensive check: 1 webpage (webpages changed recently)`; nicht abgerufene Webseiten erscheinen dort nicht. Der Daily Report wird nach jeder Prüfung für alle Webseiten neu geschrieben.
+- Der Zustand (letzte reguläre Prüfung, Webseiten im Intensiv-Modus) steht in `state.json` im Projektordner (nicht in Git; vom Skript geschrieben, nicht bearbeiten). Fehlt die Datei, wird der Zeitpunkt der letzten Prüfung aus dem Report gelesen.
+- `--force` prüft immer alle Webseiten.
 
 ### Kommandozeilen-Optionen
 
@@ -282,7 +300,7 @@ Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#opt
    "mail_mode": "script",
    "mail_condition": "always",
    "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
-   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webmonitoring]" }
+   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
 2. `secrets.example.json` nach `secrets.json` kopieren und das SMTP-Passwort eintragen. Bei Gmail ist das ein *App-Passwort* (Google-Konto → Sicherheit → Bestätigung in zwei Schritten → App-Passwörter), nicht das normale Kontopasswort.
@@ -290,7 +308,23 @@ Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#opt
 
 Verhalten:
 
-- Die Mail wird nach jeder Prüfung versendet; der Text ist der Inhalt von `REPORT-daily-summary.txt`. Der Betreff nennt die Anzahl geänderter Webseiten und Fehler, z. B. `[Webmonitoring] 2 changed, 0 errors (26 sites, run 2026-10-22 11:00)`.
+- Die Mail wird nach jeder Prüfung versendet. Sie beginnt mit dem Ergebnis dieser Prüfung (Zeitpunkt der vorherigen Prüfung, seither geänderte Webseiten und Fehler), danach folgt der Inhalt von `REPORT-daily-summary.txt` (Vergleich mit der Erfassung von vor rund einem Tag):
+
+  ```
+  === Check 2026-10-22 13:00 (26 webpages) ===
+
+  Previous check: 2 hours ago (2026-10-22 11:00)
+  Since the previous check: 0 changed, 0 errors
+
+
+  Below: daily report
+  Compared with the capture from 25 hours ago: 1 changed, 0 without comparison
+
+  === Daily report 2026-10-22 13:00 ===
+  ...
+  ```
+
+- Der Betreff nennt beide Ergebnisse, z. B. `[Webpage Monitoring] This check: 0 changed, 0 errors | 25 hours: 1 changed (26 webpages, run 2026-10-22 13:00)`.
 - `"mail_condition": "on_change"` versendet nur dann eine Mail, wenn eine Änderung oder ein Fehler festgestellt wurde (Exit-Code 1 oder 2). Erstläufe allein zählen nicht als Änderung.
 - Das Ergebnis wird am Ende des Laufs in `REPORT-of-every-run-last-3-days.txt` vermerkt (`Mail: daily report sent to …` oder `ERROR: Mail could not be sent: …`). Ein fehlgeschlagener Versand bricht den Lauf nie ab.
 - Mit `use_ssl: true` wird eine SMTPS-Verbindung verwendet (meist Port 465), sonst eine normale Verbindung mit STARTTLS (Port 587).
@@ -368,6 +402,10 @@ Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf au
   Eigene Webseiten-Liste (nicht in Git).
 - `settings.json`
   Optionale Einstellungen (nicht in Git).
+- `secrets.json`
+  SMTP-Passwort für den Mail-Versand (nicht in Git).
+- `state.json`
+  Zustand des Zeitplans: letzte reguläre Prüfung, Webseiten im Intensiv-Modus (vom Skript geschrieben, nicht in Git).
 - `REPORT-of-every-run-last-3-days.txt`
   Protokollierung von jedem Lauf der letzten drei Tage.
 - `REPORT-daily-summary.txt`
@@ -405,7 +443,7 @@ The following webpages are unchanged:
 -  https://example-alpha.com/de/news/
 -  https://example-bravo.com/dt/
 
-Run finished: 4 sites processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
+Run finished (06:01:23): 4 webpages processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
 
 Neuester Lauf zuoberst; Läufe, die älter als drei Tage sind, werden beim nächsten Lauf entfernt. Der Report zeigt höchstens 15 Änderungszeilen pro Webseite (Standard, siehe `max_change_lines`).
@@ -425,7 +463,7 @@ Wird nach jedem Lauf neu geschrieben, im gleichen Aufbau wie ein Lauf des Report
 Während des Laufs zeigt das Skript, welche Webseite gerade abgerufen wird, und das Ergebnis:
 
 ```
-Webpages monitor – run 2026-10-22 11:00 – 26 sites
+Webpages monitor – run 2026-10-22 11:00 – 26 webpages
 
 [ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
 [ 2/26] https://example-bravo.com/dt/ ... CHANGED (4.8 s)
@@ -434,15 +472,14 @@ Webpages monitor – run 2026-10-22 11:00 – 26 sites
 
 Writing reports ... done
 
-Terminal will be closed in 5 seconds.....
+Window closes in 60 s - press Enter to close now.
 ```
 
 - `login...` erscheint bei der Webseite, bei der sich das Skript über ein Anmeldeformular anmeldet.
-- Nach „done“ folgt die Meldung `Terminal will be closed in 5 seconds`; danach erscheinen fünf Punkte, einer pro Sekunde, damit die letzten Zeilen noch lesbar sind, bevor sich das Fenster schliesst.
+- Nach „done“ folgt die Meldung `Window closes in 60 s - press Enter to close now.`, damit die letzten Zeilen noch lesbar sind, bevor sich das Fenster schliesst; *Enter* schliesst es sofort. Die Wartezeit ist `keep_open_after_run_seconds` in `dev_mode` (gilt auch für manuelle Starts; `0` = keine Pause).
 - Sonst erscheint nichts im Terminal; alle Details stehen in den Report-Dateien. Mit `console_progress` auf `false` werden Anzeige und Pause abgeschaltet.
 - Mit `"mail_mode": "script"` folgt nach den Reports die Zeile `Sending mail ... done`.
 - Ist keine Prüfung fällig, erscheint nur eine Zeile, z. B. `Webpages monitor – 2026-10-22 12:00 – no check due (last check 2026-10-22 11:00, next 2026-10-22 17:00). Use --force to check now.`
-- Im Fenster des Dev-Modus ersetzt `Window closes in 60 s - press Enter to close now.` die fünf Punkte.
 
 ### Exit-Codes
 

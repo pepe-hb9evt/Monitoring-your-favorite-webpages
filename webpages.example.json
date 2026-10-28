@@ -48,7 +48,7 @@
     "password_env": "MONITOR_PW_INTERNAL"
   },
 
-  "_login_wordpress": "With the WordPress login form. 'login_url' is optional (default: <site>/wp-login.php).",
+  "_login_wordpress": "With the WordPress login form. 'login_url' is optional (default: <webpage>/wp-login.php).",
   "example-login-wordpress": {
     "url": "https://example.org/members/reports/",
     "login": "wordpress",

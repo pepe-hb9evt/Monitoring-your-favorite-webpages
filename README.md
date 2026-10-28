@@ -35,7 +35,7 @@ This README gives a concise overview. For the complete reference, see **[DOCUMEN
 - The webpages to check are listed in a JSON file, optionally with the credentials for an HTTP Basic login or the WordPress login form.
 - If a webpage redirects to a login page that cannot be passed, this is reported as an error instead of storing the login page.
 - While running, the terminal window shows which webpage is being fetched and the result.
-- For test runs, an entry `STOP` in the site list ends the list; all following entries are skipped.
+- For test runs, an entry `STOP` in the webpage list ends the list; all following entries are skipped.
 - Faulty entries or unreachable webpages never stop the run.
 - Started every hour, the script checks only every N hours (`check_interval_hours`, e.g. 05:00, 11:00, 17:00, 23:00) and catches up on missed checks.
 - Optional: sends the daily report by e-mail itself (SMTP, e.g. Gmail), after every check or only on changes.
@@ -64,7 +64,7 @@ Various parameters can be changed in `settings.json` (file names, retention, tim
 
 The first run only saves a baseline; comparison starts with the second run.
 
-## Site list (`webpages.json`)
+## Webpage list (`webpages.json`)
 
 The webpages to monitor are entered in `webpages.json`:
 
@@ -80,7 +80,7 @@ The webpages to monitor are entered in `webpages.json`:
 ```
 
 All formats, rules and options are described in:
-[DOCUMENTATION.md → Site list](DOCUMENTATION.md#site-list-webpagesjson).
+[DOCUMENTATION.md → Webpage list](DOCUMENTATION.md#webpage-list-webpagesjson).
 
 ## Scheduled runs (Windows)
 
@@ -105,7 +105,7 @@ Which hours are actually checked is set in `settings.json`:
 "check_anchor_hour": 5
 ```
 
-This gives checks at 05:00, 11:00, 17:00 and 23:00; missed checks are caught up. `--force` checks at once. With `"dev_mode": {"enabled": true}` each check is shown in a visible terminal window.
+This gives checks at 05:00, 11:00, 17:00 and 23:00; missed checks are caught up. With `"intensive_check_interval_hours": 2`, a webpage with a change is checked again 2 hours later (only this webpage), until no new change is found. `--force` checks at once. With `"dev_mode": {"enabled": true}` each check is shown in a visible terminal window.
 
 E-mail by the script (`"mail_mode": "script"`), fixed times instead of hourly starts and further notes:
 [DOCUMENTATION.md → Schedule](DOCUMENTATION.md#schedule-hourly-start-and-check-interval), [E-mail](DOCUMENTATION.md#e-mail-sent-by-the-script), [Scheduled runs](DOCUMENTATION.md#scheduled-runs-on-windows-task-scheduler).

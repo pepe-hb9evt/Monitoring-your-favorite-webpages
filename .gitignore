@@ -1,6 +1,6 @@
 # Ignore everything (/*) except the project files (allow-list with !/... ).
-# This keeps the real site list (webpages.json, possibly with credentials), settings.json,
-# secrets.json (SMTP password), the report and the per-site data folders (copies, archive) out of Git.
+# This keeps the real webpage list (webpages.json, possibly with credentials), settings.json,
+# secrets.json (SMTP password), the report and the per-webpage data folders (copies, archive) out of Git.
 
 # Ignore everything ...
 /*
