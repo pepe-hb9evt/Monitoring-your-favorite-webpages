@@ -30,7 +30,7 @@
   "check_interval_hours": 6,
   "_check_anchor_hour": "hour of day (0-23) the grid starts from; 6 hours from 5 -> checks at 05, 11, 17, 23",
   "check_anchor_hour": 5,
-  "_intensive_check_interval_hours": "0 = off; N = a webpage with a change is checked again after N hours (only it); without a new change it waits for the next regular check. Must be smaller than check_interval_hours",
+  "_intensive_check_interval_hours": "0 = off; N = webpages that changed or were not reachable are checked again after N hours (only these); if new content is found, a mail is sent and the chain continues, otherwise it ends until the next regular check. Must be smaller than check_interval_hours",
   "intensive_check_interval_hours": 0,
 
   "_mail": "--- Mail sent by the script; SMTP password in secrets.json (template: secrets.example.json) ---",

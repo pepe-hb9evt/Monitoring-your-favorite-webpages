@@ -23,9 +23,10 @@ Run:                  python webpages_monitor.py [--force | --test-mail]
 Schedule:             the script is meant to be started every hour (install_task.ps1); a check is only
                       done when it is due: every "check_interval_hours" hours starting at "check_anchor_hour",
                       or as catch-up when the last check is older than the interval
-Intensive check:      "intensive_check_interval_hours": N > 0 checks a webpage with a detected change again
-                      after N hours (only these webpages); without a new change it waits for the next
-                      regular check again. State in state.json
+Intensive check:      "intensive_check_interval_hours": N > 0: webpages that changed or were not reachable
+                      are checked again after N hours (only these webpages). A mail is sent only if new
+                      content was found; then the chain continues with the webpages changed or not reachable
+                      in this check, otherwise it ends until the next regular check. State in state.json
 Mail:                 "mail_mode": "script" sends the daily report by SMTP after a check ("mail_condition":
                       "always" or "on_change"); the SMTP password lives in secrets.json
 Dev mode:             "dev_mode": {"enabled": true} shows a terminal window also for windowless scheduled
@@ -100,7 +101,7 @@ DEFAULTS = {
     # Schedule: the script is started every hour; a check is done every N hours
     "check_interval_hours": 1,                  # 1, 2, 3, 4, 6, 8, 12 or 24 (1 = check on every start)
     "check_anchor_hour": 0,                     # hour of day (0-23) the check grid starts from
-    "intensive_check_interval_hours": 0,        # 0 = off; N = check changed webpages again after N hours
+    "intensive_check_interval_hours": 0,        # 0 = off; N = check changed/unreachable webpages again after N hours
     # Mail sent by this script (alternative to sending the reports by other means)
     "mail_mode": "none",                        # "none" = the script sends no mail, "script" = send by SMTP
     "mail_condition": "always",                 # "always" = after every check, "on_change" = only on change/error
@@ -585,19 +586,32 @@ def build_daily_report(now, sites, failed):
     return lines, {"hours": hours, "changed": len(changed), "no_comparison": len(no_comparison)}
 
 
-def mail_intro(now, previous, count, sites_text, changed_urls, daily_stats, intensive=False):
-    """Lines at the top of the mail: result of this check first, then the daily report."""
-    since = f"{interval_text(now - previous)} ago ({previous:%Y-%m-%d %H:%M})" if previous else "none"
-    hours = daily_stats["hours"]
-    lines = [f"=== {'Intensive check' if intensive else 'Check'} {now:%Y-%m-%d %H:%M} ({sites_text}) ===", ""]
+def since_text(delta):
+    """Time since the previous run for the mail: below one hour in minutes, otherwise in whole hours."""
+    minutes = int((delta.total_seconds() + 30) // 60)
+    if minutes < 60:
+        return f"{minutes} {'minute' if minutes == 1 else 'minutes'}"
+    hours = (minutes + 30) // 60
+    return f"{hours} {'hour' if hours == 1 else 'hours'}"
+
+
+def mail_subject_text(now, previous, count):
+    """Short subject: result of this run, e.g. '0 changed, 0 errors since 1 hour'."""
+    since = f"since {since_text(now - previous)}" if previous else "(first run)"
+    return f"{count['changed']} changed, {count['error']} errors {since}"
+
+
+def mail_intro(now, previous, count, sites_text, changed_urls, error_urls, daily_stats, intensive=False):
+    """Lines at the top of the mail: summary, then this run (changed webpages, errors), then the daily report."""
+    since = f"since last run {since_text(now - previous)} ago" if previous else "(first run)"
+    lines = [f"This run:      {count['changed']} changed, {count['error']} errors {since}",
+             f"Daily report:  {daily_stats['changed']} changed, {daily_stats['no_comparison']} without comparison",
+             "", "",
+             f"=== {'Intensive run' if intensive else 'Run'} {now:%Y-%m-%d %H:%M} ({sites_text}) ===", ""]
     if intensive:
         lines += ["Only webpages with a recent change were fetched.", ""]
-    lines += [f"Previous check: {since}",
-              f"Since the previous check: {count['changed']} changed, {count['error']} errors"]
-    lines += [f"-  {u}" for u in changed_urls]
-    lines += ["", "", "Below: daily report",
-              f"Compared with the capture from {hours} {'hour' if hours == 1 else 'hours'} ago: "
-              f"{daily_stats['changed']} changed, {daily_stats['no_comparison']} without comparison", "", ""]
+    lines += ["New information on:"] + ([f"-  {u}" for u in changed_urls] or ["(none)"]) + [""]
+    lines += ["Errors:"] + ([f"-  {u}" for u in error_urls] or ["(none)"]) + ["", "", ""]
     return lines
 
 
@@ -948,7 +962,7 @@ def save_state(state):
 
 
 def intensive_due(now, state):
-    """Short names in intensive mode whose last check is at least INTENSIVE_HOURS old."""
+    """Short names on the intensive list whose last check is at least INTENSIVE_HOURS old."""
     if not INTENSIVE_HOURS:
         return []
     limit = timedelta(hours=INTENSIVE_HOURS) - CATCH_UP_TOLERANCE
@@ -959,7 +973,8 @@ def check_due(now, state):
     """Return (mode, reason): mode "regular", "intensive" or None (nothing due).
     Regular: on the grid hour (anchor + n * interval) or as catch-up when the last regular check is
     older than the interval (e.g. the computer was switched off at the grid hour).
-    Intensive: webpages with a recent change whose last check is INTENSIVE_HOURS old."""
+    Intensive: webpages on the intensive list (changed or not reachable at the previous check)
+    whose last check is INTENSIVE_HOURS old."""
     if (now.hour - CHECK_ANCHOR_HOUR) % CHECK_INTERVAL_HOURS == 0:
         return "regular", "scheduled check"
     last = state["last_regular_check"] or last_check_time()
@@ -979,6 +994,11 @@ def check_due(now, state):
 
 
 # --- Mail ----------------------------------------------------------------------------------
+# appended to every mail sent by the script (not to the report files)
+MAIL_FOOTER = ("- - - - -\n"
+               "Sent by: Monitoring your favorite webpages (Python Tool)\n"
+               "Source:  https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages\n"
+               "Author:  Pepe HB9EVT, with Claude (Anthropic)\n")
 SECRETS_PROBLEMS = []  # notes about secrets.json (unknown keys), filled when the file is read
 
 
@@ -1019,6 +1039,7 @@ def send_mail(subject, body):
     msg["From"] = mail_cfg["sender"]
     msg["To"] = ", ".join(mail_cfg["recipients"])
     msg["Subject"] = f"{mail_cfg['subject_prefix'].strip()} {subject}".strip()
+    body = body.rstrip() + "\n\n\n" + MAIL_FOOTER
     msg.set_content(body)
     username = smtp_cfg["username"].strip() or mail_cfg["sender"]
     context = ssl.create_default_context()
@@ -1200,7 +1221,7 @@ def run_check(now, state, mode="regular"):
                 due_names = set(intensive_due(now, state))
                 sites = {n: e for n, e in all_sites.items() if n in due_names}
                 short += [f"Intensive check: {len(sites)} {'webpage' if len(sites) == 1 else 'webpages'} "
-                          "(webpages changed recently)", ""]
+                          "(changed or not reachable at the previous check)", ""]
             no_comparison, changed, unchanged = [], [], []
             if SETTINGS_PROBLEMS:
                 no_comparison += [[str(SETTINGS_FILE)] + [f"ERROR: {m}" for m in SETTINGS_PROBLEMS]]
@@ -1208,7 +1229,7 @@ def run_check(now, state, mode="regular"):
             if entry_problems:
                 no_comparison += [[str(WEBPAGES_FILE)] + [f"ERROR: {m}" for m in entry_problems]]
                 code = 1
-            failed = {}
+            failed, follow_up = {}, []
             count = {"ok": 0, "first": 0, "changed": 0, "error": 0}
             stop_text = (f" (STOP in {WEBPAGES_FILE.name}: {STOP_SKIPPED} "
                          f"{'webpage' if STOP_SKIPPED == 1 else 'webpages'} skipped)" if STOP_SKIPPED is not None else "")
@@ -1226,12 +1247,8 @@ def run_check(now, state, mode="regular"):
                     lines, status = [f"Unexpected error: {type(e).__name__}: {e}"], "error"
                 progress(f"{progress_status(lines, status)} ({time.monotonic() - started:.1f} s)")
                 count[status] += 1
-                # intensive mode: a changed webpage is checked again after INTENSIVE_HOURS hours,
-                # otherwise (no change, error, first run) only at the next regular check
-                if INTENSIVE_HOURS and status == "changed":
-                    state["intensive"][name] = now
-                else:
-                    state["intensive"].pop(name, None)
+                if status in ("changed", "error"):
+                    follow_up.append(name)  # candidate for the next intensive check
                 if status == "error":
                     failed[name] = lines[0]
                     no_comparison.append([url, "ERROR: " + lines[0]] + lines[1:])
@@ -1251,18 +1268,21 @@ def run_check(now, state, mode="regular"):
             code = 1 if (count["changed"] or count["error"] or entry_problems or SETTINGS_PROBLEMS) else 0
             if not intensive:
                 state["last_regular_check"] = now
-                if not INTENSIVE_HOURS:
-                    state["intensive"] = {}
+            # intensive list for the next check after INTENSIVE_HOURS hours (only the checked webpages):
+            # regular check -> webpages changed or not reachable; intensive check -> the same, but only
+            # if at least one webpage has new content, otherwise the chain ends (even if errors remain)
+            if INTENSIVE_HOURS and (not intensive or count["changed"]):
+                state["intensive"] = {name: now for name in follow_up}
+            else:
+                state["intensive"] = {}
             daily_lines, daily_stats = build_daily_report(now, all_sites, failed)  # always all webpages
             daily = stop_note + daily_lines
-            hours = daily_stats["hours"]
             sites_text = f"{len(sites)} of {len(all_sites)} webpages" if intensive else f"{len(sites)} webpages"
-            # subject: this check first, then the daily comparison
-            mail_subject = (f"{'Intensive check' if intensive else 'This check'}: {count['changed']} changed, "
-                            f"{count['error']} errors | "
-                            f"{hours} {'hour' if hours == 1 else 'hours'}: {daily_stats['changed']} changed"
-                            f" ({sites_text}, run {now:%Y-%m-%d %H:%M})")
-            intro = mail_intro(now, previous, count, sites_text, [c[0] for c in changed], daily_stats, intensive)
+            # subject: result of this run only (short); the daily report is summarized in the mail text
+            mail_subject = mail_subject_text(now, previous, count)
+            error_urls = [sites[name]["url"] for name in failed]
+            intro = mail_intro(now, previous, count, sites_text, [c[0] for c in changed], error_urls,
+                               daily_stats, intensive)
             news = count["changed"] > 0 if intensive else code != 0
     except Exception as e:
         short += ["ERROR: Unexpected error during the run: " + f"{type(e).__name__}: {e}", "",
