@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Project:
     Monitoring your favorite webpages
@@ -13,41 +14,6 @@ Authors
     Claude (Anthropic) (AI in 'Large Language Model' mode)
 """
 
-#!/usr/bin/env python3
-r"""Webpages monitor: fetches pages, extracts the visible content, stores copies and compares them.
-
-Requirements (once):  pip install -r requirements.txt
-Run:                  python webpages_monitor.py [--force | --test-mail]
-                      --force      check now, even if no check is due according to the schedule
-                      --test-mail  send a test mail (content: current daily report) and exit
-Schedule:             the script is meant to be started every hour (install_task.ps1); a check is only
-                      done when it is due: every "check_interval_hours" hours starting at "check_anchor_hour",
-                      or as catch-up when the last check is older than the interval
-Intensive check:      "intensive_check_interval_hours": N > 0: webpages that changed or were not reachable
-                      are checked again after N hours (only these webpages). A mail is sent only if new
-                      content was found; then the chain continues with the webpages changed or not reachable
-                      in this check, otherwise it ends until the next regular check. State in state.json
-Mail:                 "mail_mode": "script" sends the daily report by SMTP after a check ("mail_condition":
-                      "always" or "on_change"); the SMTP password lives in secrets.json
-Dev mode:             "dev_mode": {"enabled": true} shows a terminal window also for windowless scheduled
-                      runs (pythonw.exe)
-Settings:             settings.json next to the script (optional, see settings.example.json)
-Webpage list:         <PROJECT_DIR>\webpages.json (read on every run); keys starting with _ are comments;
-                      a key "STOP" ends the list (test runs: entries below it are skipped)
-Storage:              <PROJECT_DIR>\monitored-webpages\<shortname>\captured_<YYYY-MM-DD_HHHMM>.txt (one per run,
-                      kept 48 hours) and archive\<YYYY-MM-DD>.txt (last capture of each day, kept)
-Report:               <PROJECT_DIR>\REPORT-of-every-run-last-3-days.txt (short reports of the last 3 days,
-                      newest first; older runs are removed automatically)
-Daily report:         <PROJECT_DIR>\REPORT-daily-summary.txt (rewritten on every run: newest capture compared
-                      with the newest capture at least 23 hours old, or the oldest one available)
-Login:                HTTP Basic (default) or WordPress login form ("login": "wordpress"); see DOCUMENTATION.md
-Ignore rules:         per webpage "ignore": {"elements": [CSS selector, ...]} removes HTML elements before
-                      extraction; "text"/"images"/"links": [pattern, ...] leave lines out when comparing
-Images:               each <img> is downloaded once per run and stored with a content hash
-                      ("URL | alt=... | sha1=..."), so a new image under the same URL is detected
-Console:              progress per webpage is shown while running (setting "console_progress")
-Exit code:            0 = no change or no check due, 1 = change or webpage error, 2 = configuration/program error
-"""
 import argparse
 import difflib
 import hashlib
