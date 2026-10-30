@@ -18,6 +18,7 @@
 !/settings.example.json
 !/secrets.example.json
 !/install_task.ps1
+!/Menu for webpages-monitor-py.bat
 
 # Python
 __pycache__/
