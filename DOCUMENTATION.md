@@ -6,6 +6,8 @@ Documentation of the project "**[Monitoring-your-favorite-webpages](https://gith
 
 This is the detailed documentation of the Python script. For a short overview, see the [README](README.md).
 
+<br>
+
 ## Contents
 
 - [How it works](#how-it-works)
@@ -15,6 +17,8 @@ This is the detailed documentation of the Python script. For a short overview, s
 - [Output](#output)
 - [What the current version cannot do](#what-the-current-version-cannot-do)
 - [Optional: notification with Claude](#optional-notification-with-claude)
+
+<br>
 
 ## How it works
 
@@ -32,6 +36,8 @@ The script (`webpages_monitor.py`)
 - checks for each webpage, based on the capture files, whether there are differences between the current and the previous run, and logs the result in `REPORT-of-every-run-last-3-days.txt` (newest run always first; runs older than three days are removed automatically).
 - additionally compares for each webpage the current capture with the newest one that is at least 23 hours old, and logs the result in `REPORT-daily-summary.txt` (if no capture is at least 23 hours old, the oldest one available is used instead).
 - is configurable: user-dependent values (file names, retention, timeout, user agent, …) are kept in an optional `settings.json`.
+
+<br>
 
 ### Image detection
 
@@ -59,15 +65,25 @@ Comparison: the lines are compared like text. If the hash of an image (same URL 
 
 Not detected: CSS background images, `<picture><source>`, `<canvas>` and images loaded by JavaScript. Images that change on every request (webcams, captchas, random banners) are reported on every run; in that case set `"image_hash": false`.
 
+<<<<<<< Updated upstream
 ## Site list (`webpages.json`)
+=======
+<br>
+
+## Webpage list (`webpages.json`)
+>>>>>>> Stashed changes
 
 The file lives in the project folder and is re-read on every run. It is a JSON object that maps short names to webpages. A commented template with all formats is [`webpages.example.json`](webpages.example.json).
+
+<br>
 
 ### Short form
 
 ```json
 "alpha-news": "https://example-alpha.com/de/news/"
 ```
+
+<br>
 
 ### Long form
 
@@ -77,7 +93,21 @@ The file lives in the project folder and is re-read on every run. It is a JSON o
 
 ### With credentials (HTTP Basic)
 
+<<<<<<< Updated upstream
 #### Password stored in an environment variable (recommended)
+=======
+<br>
+
+### Webpages with logins
+
+Logins with HTTP Basic and the WordPress login form are supported.
+
+Other login forms (e.g. MediaWiki, DokuWiki) are **not supported**.
+
+<br>
+
+#### Login HTTP Basic with the password stored in an environment variable (recommended)
+>>>>>>> Stashed changes
 
 ```json
 "internal": {
@@ -93,7 +123,15 @@ Set the variable once (a new terminal or a new sign-in is required afterwards):
 setx MONITOR_PW_INTERNAL "secret-password"
 ```
 
+<<<<<<< Updated upstream
 #### Password in plain text (not recommended)
+=======
+If the environment variable is not set during the run, the webpage is skipped; the report then shows `Entry '…' skipped: environment variable '…' is not set`. This applies to all login types with `password_env`.
+
+<br>
+
+#### Login HTTP Basic with the password in plain text (not recommended)
+>>>>>>> Stashed changes
 
 ```json
 "private": {
@@ -103,7 +141,13 @@ setx MONITOR_PW_INTERNAL "secret-password"
 }
 ```
 
+<<<<<<< Updated upstream
 ### With a login form (WordPress)
+=======
+<br>
+
+#### Login with a login form (WordPress)
+>>>>>>> Stashed changes
 
 Many club and association websites use the normal WordPress login form instead of HTTP Basic. With `"login": "wordpress"` the script signs in through this form before fetching the page:
 
@@ -122,6 +166,8 @@ Many club and association websites use the normal WordPress login form instead o
 - The same check also applies to webpages without `login`: if a page suddenly redirects to a login page, this is reported as an error instead of storing the login page.
 - Login forms with a captcha or two-factor authentication cannot be used.
 
+<br>
+
 ### Test runs with `STOP`
 
 To test with only one or two webpages, put them at the top of the list and add an entry `STOP` below them. All entries after `STOP` are skipped:
@@ -139,6 +185,8 @@ To test with only one or two webpages, put them at the top of the list and add a
 - The terminal shows e.g. `… – 2 sites (STOP in webpages.json: 28 sites skipped)`, and both reports start with `Note: STOP in webpages.json – … sites after STOP skipped`; this way a forgotten `STOP` is noticed.
 - To monitor the whole list again, delete the line or rename it to `_STOP`.
 
+<br>
+
 ### Comments
 
 JSON has no comments. Keys that start with `_` are therefore ignored:
@@ -147,6 +195,15 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 "_comment": "A note"
 ```
 
+<<<<<<< Updated upstream
+=======
+This applies to all JSON files of the project (`webpages.json`, `settings.json`, `secrets.json`) and on every level, e.g. also inside a webpage entry, inside `ignore` or inside `smtp`. A comment key may appear several times.
+
+Every other key that is not expected (e.g. a misspelt `"pasword"`) is ignored as well, but always noted in the report as `ERROR: … unknown key …`. The run is not stopped, and the webpage is still monitored.
+
+<br>
+
+>>>>>>> Stashed changes
 ### Rules
 
 | Field | Required | Description |
@@ -163,9 +220,13 @@ JSON has no comments. Keys that start with `_` are therefore ignored:
 
 A faulty entry is skipped and noted in the report. If the file is missing, is not valid JSON or contains not a single valid webpage, the run ends in a controlled way with a log entry.
 
+<br>
+
 ### `accept_status`
 
 Optional per webpage: `"accept_status": [500]` uses the content even if the server answers with one of these HTTP error codes (for servers that deliver a normal page with a wrong status code). The report then shows a note. Use it only for webpages where this is known; otherwise real error pages would be stored as content.
+
+<br>
 
 ### `ignore`
 
@@ -188,11 +249,19 @@ Optional per webpage: lines that change all the time (solar banners, counters, "
 - The capture files stay complete; the rules apply only when comparing. A new rule therefore also works for existing captures, and if it is removed, the full comparison applies again.
 - Faulty rules (wrong type, invalid regular expression, unknown key) are skipped and noted in the report; the webpage itself is still monitored.
 
+<<<<<<< Updated upstream
 ### Limitation: other login forms
+=======
+<br>
+
+#### `ignore.elements`: remove whole HTML areas
+>>>>>>> Stashed changes
 
 Besides HTTP Basic, only the WordPress login form is supported.
 
 Other login forms (e.g. MediaWiki, DokuWiki) are **not supported**.
+
+<br>
 
 ## Settings (`settings.json`)
 
@@ -215,14 +284,174 @@ Optional. Lives next to the script; see [`settings.example.json`](settings.examp
 | `image_max_bytes` | `5000000` | Max. bytes read per image |
 | `image_timeout_seconds` | `15` | Time limit per image |
 | `console_progress` | `true` | Show the progress per webpage in the terminal window |
+<<<<<<< Updated upstream
 
 Invalid values or unknown keys never stop a run: the default value applies, and the report shows a note.
+=======
+| `check_interval_hours` | `1` | Check every N hours: `1`, `2`, `3`, `4`, `6`, `8`, `12` or `24` (see [Schedule](#schedule-hourly-start-and-check-interval)) |
+| `check_anchor_hour` | `0` | Hour of day (0–23) the check grid starts from |
+| `intensive_check_interval_hours` | `0` | `0` = off; N = check changed or unreachable webpages again after N hours (see [Intensive check](#intensive-check-of-changed-and-unreachable-webpages)) |
+| `mail_mode` | `none` | `none` = the script sends no mail, `script` = the script sends the daily report by SMTP (see [E-mail](#e-mail-sent-by-the-script)) |
+| `mail_condition` | `always` | `always` = mail after every check, `on_change` = only if a change or an error was detected |
+| `smtp` | Gmail, port 587, STARTTLS | SMTP server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
+| `mail` | – | `sender`, `recipients` (list), `subject_prefix` (default `[Webpage Monitoring]`) |
+| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (default `60`, also used for manual starts, `0` = no pause), see [Dev mode](#dev-mode-visible-terminal-window) |
+
+Invalid values or unknown keys never stop a run: the default value applies, and the report shows a note. Keys starting with `_` are comments (see [Comments](#comments)). Unknown keys in `secrets.json` are noted when the file is read for a mail.
+
+<br>
+
+## Schedule: hourly start and check interval
+
+The script is meant to be **started every hour**. It decides itself whether a check of all webpages is due:
+
+- **On the check grid:** a check is done at the hours `check_anchor_hour + n × check_interval_hours`. Example: `"check_interval_hours": 6` and `"check_anchor_hour": 5` give checks at 05:00, 11:00, 17:00 and 23:00.
+- **Catch-up:** if the computer was switched off at a grid hour, the check is done at the next hourly start as soon as the last regular check is older than the interval. The time of the last regular check is taken from `state.json` (if missing: from `REPORT-of-every-run-last-3-days.txt`).
+- **No check due:** the script ends at once with exit code 0. Nothing is written to the reports, no mail is sent and no window is opened.
+- With `"check_interval_hours": 1` (default) every start is a check, as in earlier versions.
+- `python webpages_monitor.py --force` checks at once, regardless of the schedule.
+
+<br>
+
+### Intensive check of changed and unreachable webpages
+
+With `"intensive_check_interval_hours": N` (N > 0, smaller than `check_interval_hours`; `0` = off, default), webpages that **changed** or were **not reachable** are checked again **N hours later** – only these webpages, not the whole list:
+
+- **Regular check:** All changed and all unreachable webpages are put on the intensive list.
+- **Intensive check:** Only the webpages on the intensive list are fetched.
+  - If at least one webpage has **new content**, a mail is sent and the list is rebuilt: all webpages that changed or were not reachable in this check. The next intensive check follows N hours later.
+  - If no webpage has new content, **no mail** is sent and the list is cleared: no further intensive check, even if webpages are still not reachable.
+- The next regular check always replaces the list with its own result.
+- First runs (newly added webpages) are not put on the list.
+
+| Time | Example: regular every 4 hours from 03:00, intensive after 1 hour | Mail | Intensive list |
+|---|---|---|---|
+| 03:00 | Regular check of all webpages: A changed, B not reachable | yes | A, B |
+| 04:00 | Intensive check of A and B: A changed again, B not reachable | yes | A, B |
+| 05:00 | Intensive check of A and B: A unchanged, B not reachable | no | empty |
+| 06:00 | no check | – | empty |
+| 07:00 | Regular check of all webpages | according to `mail_condition` | new |
+
+Variant: if B is reachable again at 04:00 and has new content while A is unchanged, a mail is sent and only B is checked at 05:00.
+
+Note: if a webpage changes on every fetch (e.g. a counter or date), a mail is sent every hour until the next regular check. Remedy: an `ignore` entry for this webpage.
+
+- If an intensive check falls on a regular hour, the regular check covers it.
+- The run section of the mail is titled `=== Intensive run … ===` and names the number of fetched webpages, e.g. `2 of 32 webpages`.
+- The run report notes `Intensive check: 2 webpages (changed or not reachable at the previous check)`; webpages not fetched do not appear there. The daily report is rewritten for all webpages after every check.
+- The state (last regular check, webpages in intensive mode) is kept in `state.json` in the project folder (not in Git; written by the script, do not edit). If the file is missing, the time of the last check is taken from the report.
+- `--force` always checks all webpages.
+
+<br>
+
+### Command line options
+
+| Option | Meaning |
+|---|---|
+| *(none)* | Check if due according to the schedule |
+| `--force` | Check now, even if no check is due |
+| `--test-mail` | Send a test mail (content: current daily report) and exit; works also with `"mail_mode": "none"` |
+
+There is also a batch file that conveniently offers these options in a selection menu:<br>
+File `Menu for webpage-monitor-py.bat`
+
+<br>
+
+## E-mail sent by the script
+
+As an alternative to sending the reports by other means (e.g. [with Claude](#optional-notification-with-claude)), the script can send the daily report by e-mail itself.
+
+1. In `settings.json`: set `"mail_mode": "script"` and fill in `smtp` and `mail`:
+
+   ```json
+   "mail_mode": "script",
+   "mail_condition": "always",
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
+   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   ```
+
+2. Copy `secrets.example.json` to `secrets.json` and enter the SMTP password. For Gmail, this is an *app password* (Google account → Security → 2-step verification → App passwords), not the normal account password.
+3. Test: `python webpages_monitor.py --test-mail`
+
+Behaviour:
+
+- The mail is sent after each check. It starts with a two-line summary (this run and daily report), then the details of this run (webpages with new information, webpages with errors), followed by the content of `REPORT-daily-summary.txt` (comparison with the capture of about one day ago):
+
+```
+This run:      1 changed, 0 errors since last run 1 hour ago
+Daily report:  2 changed, 2 without comparison
+
+
+=== Run 2026-10-22 13:00 (26 webpages) ===
+
+New information on:
+-  https://www.example-alpha.com/news/
+
+Errors:
+(none)
+
+
+
+=== Daily report 2026-10-22 13:00 ===
+...
+```
+
+<br>
+
+- The subject is short and names only the result of this run, e.g. `[Webpage Monitoring] 0 changed, 0 errors since 1 hour` (below one hour in minutes, otherwise in whole hours).
+- `"mail_condition": "on_change"` sends a mail only if a change or an error was detected (exit code 1 or 2). First runs alone do not count as a change.
+- The result is noted at the end of the run in `REPORT-of-every-run-last-3-days.txt` (`Mail: daily report sent to …` or `ERROR: Mail could not be sent: …`). A failed mail never stops the run.
+- With `use_ssl: true` an SMTPS connection is used (usually port 465), otherwise a normal connection with STARTTLS (port 587).
+- Only the Python standard library is used; no additional package is needed.
+
+<br>
+
+## Dev mode: visible terminal window
+
+`install_task.ps1` registers the task with `pythonw.exe`, which runs **without** a window. To watch the scheduled runs, switch on the dev mode in `settings.json`:
+
+```json
+"dev_mode": { "enabled": true, "keep_open_after_run_seconds": 60 }
+```
+
+- For each due check, the script starts itself again in a visible terminal window and shows the progress.
+- After the run, the window stays open for `keep_open_after_run_seconds` seconds; *Enter* closes it at once.
+- Hourly starts without a due check open no window.
+- The task does not have to be registered again; switch back with `"enabled": false`.
+>>>>>>> Stashed changes
+
+<br>
 
 ## Scheduled runs on Windows (Task Scheduler)
 
+<<<<<<< Updated upstream
+=======
+<br>
+
+### Recommended: hourly task with `install_task.ps1`
+
+In PowerShell, in the project folder:
+
+```
+.\install_task.ps1              # register / update the task "Webpages-Monitor" (every hour, at the full hour)
+.\install_task.ps1 -Remove      # remove the task
+.\install_task.ps1 -TaskName "My-Monitor"   # other task name
+```
+
+The task starts the script every hour with `pythonw.exe` (no window); which hours are checked is set with `check_interval_hours` and `check_anchor_hour`. If PowerShell blocks the script, start it once with `powershell -ExecutionPolicy Bypass -File .\install_task.ps1`.
+
+<br>
+
+### Alternative: fixed times
+
+The script can also be started at fixed times. In this case set `"check_interval_hours": 1` (default), so that every start is a check.
+
+>>>>>>> Stashed changes
 Example: daily at 06:00. For further times, repeat the command with another name (`/tn`) and another time (`/st`). Adjust the paths; `where python` shows the full path to `python.exe`.
 
 On Windows systems in German, the Task Scheduler is called "Aufgabenplanung".
+
+<br>
 
 ### Command line (`schtasks`)
 
@@ -234,6 +463,8 @@ schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd 
 
 Test: `schtasks /run /tn "Webpages Monitor 0600"`. Delete: `schtasks /delete /tn "Webpages Monitor 0600" /f`.
 
+<br>
+
 ### Graphical interface
 
 1. Open *Task Scheduler* → *Create Basic Task* (or *Create Task*).
@@ -244,12 +475,18 @@ Test: `schtasks /run /tn "Webpages Monitor 0600"`. Delete: `schtasks /delete /tn
    - Start in: the project folder
 4. Under *Settings*: enable *Run task as soon as possible after a scheduled start is missed*.
 
+<br>
+
 ### Notes
 
 - "Run only when user is logged on" is enough if the computer is running. For the task to run without being signed in, it needs a stored password; environment variables for `password_env` are then only available if they are set as user or system variables of the account that runs the task.
 - The computer needs an internet connection during the run.
 
+<br>
+
 ## Output
+
+<br>
 
 ### Files
 
@@ -269,6 +506,8 @@ Everything lives in the project folder (the folder `monitored-webpages` is creat
   Content of one fetch (text, IMAGES, LINKS); all captures are kept for 48 hours.
 - `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`
   Last capture of that day, kept permanently in the archive.
+
+<br>
 
 ### Layout of `REPORT-of-every-run-last-3-days.txt`
 
@@ -303,13 +542,19 @@ Newest run first; runs older than three days are removed on the next run. The re
 
 Each run compares the newest with the second newest capture of a webpage. Each run starts with the time since the previous run (`Previous run: 47 minutes ago`; up to 99 minutes in minutes, from 100 minutes on in hours, rounded).
 
+<br>
+
 ### Capture files
 
 Every successful fetch writes `captured_YYYY-MM-DD_HHHMM.txt` (e.g. `captured_2026-10-21_11H00.txt`). Captures older than 48 hours are deleted on the next run; the two newest captures of a webpage are always kept. The archive keeps one copy per day permanently (the last one of the day).
 
+<br>
+
 ### Layout of `REPORT-daily-summary.txt`
 
 Rewritten after every run, in the same layout as a run of the report, with the header `=== Daily report YYYY-MM-DD HH:MM ===`. For each webpage, the newest capture is compared with the newest of all captures that are at least 23 hours old; if there is none, with the oldest one available. The first line names the age of the reference capture, e.g. `Newest capture compared with the capture from 24 hours ago.`; if no capture was old enough, `(oldest capture available)` is added. Webpages that failed in the current run are listed under "No comparison possible".
+
+<br>
 
 ### Terminal window
 
@@ -331,6 +576,8 @@ Writing reports ... done
 - After "done", five dots follow, one per second, so the last lines can still be read before the window closes.
 - Nothing else is written to the terminal; all details are in the report files. With `console_progress` set to `false`, the display and the pause are switched off.
 
+<br>
+
 ### Exit codes
 
 | Code | Meaning |
@@ -339,9 +586,13 @@ Writing reports ... done
 | 1 | Change, error at a webpage, or error in a list or settings entry |
 | 2 | Site list unusable or program error |
 
+<br>
+
 ## What the current version cannot do
 
 The script does not support the following points, either intentionally or for the time being:
+
+<br>
 
 ### Fetching the webpages
 
@@ -352,11 +603,15 @@ The script does not support the following points, either intentionally or for th
 - **One after another, not in parallel:** the webpages are fetched one by one. Unreachable pages extend the run up to the timeout each (default 45 seconds).
 - **No `robots.txt` check:** the fetch frequency should therefore be chosen with moderation.
 
+<br>
+
 ### Login
 
 - Only **HTTP Basic** and the **WordPress login form** are supported.
 - **Not supported** are other login forms (e.g. MediaWiki, DokuWiki, Joomla), sign-ins through third parties ("Sign in with Google/Microsoft", SSO), two-factor authentication and login forms with a captcha.
 - Logins from your own browser (cookies) cannot be taken over.
+
+<br>
 
 ### Comparison and display of changes
 
@@ -369,6 +624,8 @@ The script does not support the following points, either intentionally or for th
 - **Hidden content:** only elements hidden directly in the HTML are recognized (`hidden`, `aria-hidden="true"`, `display:none` in the `style` attribute). Content hidden through CSS classes (e.g. collapsed menus) is still captured and compared.
 - **Shortened reports:** per webpage, the report shows at most `max_change_lines` change lines (default 15); the rest is only counted.
 
+<br>
+
 ### Notification and operation
 
 - **No sending of its own:** the script only writes files. E-mails or other notifications have to be set up separately (see [Optional: notification with Claude](#optional-notification-with-claude)).
@@ -379,6 +636,8 @@ The script does not support the following points, either intentionally or for th
 - **Platform:** developed and tested on Windows (Task Scheduler, environment variables with `setx`). The script itself runs on any system with Python 3.9 or newer; however, there are no instructions for scheduled runs on other systems.
 
 There are currently no plans by the author to develop this project further to remove some of these limitations. But maybe you would like to fork it and develop it further.
+
+<br>
 
 ## Optional: notification with Claude
 

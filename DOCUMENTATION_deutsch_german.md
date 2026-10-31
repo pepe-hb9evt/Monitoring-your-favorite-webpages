@@ -1,6 +1,6 @@
 # Überwache deine Lieblingswebseiten
 
-Dokumentation zum Projekt "**[Monitoring-your-favorite-webpages](https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages)**" auf GitHub.
+Dokumentation zum Projekt "[**Monitoring-your-favorite-webpages**](https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages)" auf GitHub.
 
 ( **English version** of this document available: [DOCUMENTATION.md](DOCUMENTATION.md) )
 
@@ -11,7 +11,7 @@ Dies ist eine ausführliche Dokumentation des zugehörigen Python-Skripts. Für 
 - [So funktioniert es](#so-funktioniert-es)
 - [Webseiten-Liste (`webpages.json`)](#webseiten-liste-webpagesjson)
 - [Einstellungen (`settings.json`)](#einstellungen-settingsjson)
-- [Geplante Läufe unter Windows (Aufgabenplanung)](#geplante-läufe-unter-windows-aufgabenplanung)
+- [Geplante Läufe unter Windows (Aufgabenplanung)](#geplante-l%C3%A4ufe-unter-windows-aufgabenplanung)
 - [Ausgabe](#ausgabe)
 - [Was die aktuelle Version nicht kann](#was-die-aktuelle-version-nicht-kann)
 - [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)
@@ -77,7 +77,21 @@ Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist
 
 ### Mit Logindaten (HTTP Basic)
 
+<<<<<<< Updated upstream
+
 #### Passwort als Umgebungsvariable gespeichert (empfohlen)
+
+=======
+
+### Webseiten mit Logins
+
+Unterstützt wird das Login mit HTTP Basic sowie das WordPress-Anmeldeformular.
+
+**Nicht unterstützt** werden andere Anmeldeformulare (z. B. MediaWiki, DokuWiki).
+
+#### Login HTTP Basic mit Passwort als Umgebungsvariable gespeichert (empfohlen)
+
+> > > > > > > Stashed changes
 
 ```json
 "internal": {
@@ -93,7 +107,16 @@ Variable einmalig setzen (danach ist ein neues Terminal oder eine neue Anmeldung
 setx MONITOR_PW_INTERNAL "secret-password"
 ```
 
+<<<<<<< Updated upstream
+
 #### Passwort im Klartext (nicht empfohlen)
+
+=======
+Ist die Umgebungsvariable beim Lauf nicht gesetzt, wird die Webseite übersprungen; im Report steht dann `Entry '…' skipped: environment variable '…' is not set`. Das gilt für alle Login-Arten mit `password_env`.
+
+#### Login HTTP Basic mit Passwort im Klartext (nicht empfohlen)
+
+> > > > > > > Stashed changes
 
 ```json
 "private": {
@@ -103,7 +126,15 @@ setx MONITOR_PW_INTERNAL "secret-password"
 }
 ```
 
+<<<<<<< Updated upstream
+
 ### Mit Anmeldeformular (WordPress)
+
+=======
+
+#### Login mit Anmeldeformular (WordPress)
+
+> > > > > > > Stashed changes
 
 Viele Vereins- und Verbandsseiten nutzen statt HTTP Basic das normale WordPress-Anmeldeformular. Mit `"login": "wordpress"` meldet sich das Skript vor dem Abruf über dieses Formular an:
 
@@ -147,19 +178,27 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 "_comment": "Eine Notiz"
 ```
 
+# <<<<<<< Updated upstream
+
+Das gilt für alle JSON-Dateien des Projekts (`webpages.json`, `settings.json`, `secrets.json`) und auf jeder Ebene, z. B. auch innerhalb eines Webseiten-Eintrags, innerhalb von `ignore` oder innerhalb von `smtp`. Ein Kommentar-Schlüssel darf mehrfach vorkommen.
+
+Jeder andere nicht erwartete Schlüssel (z. B. ein vertipptes `"pasword"`) wird ebenfalls ignoriert, aber immer im Report als `ERROR: … unknown key …` vermerkt. Der Lauf wird nicht abgebrochen, und die Webseite wird weiter überwacht.
+
+> > > > > > > Stashed changes
+
 ### Regeln
 
-| Feld | Pflicht | Beschreibung |
-|---|---|---|
-| Kurzname (Schlüssel) | ja | Buchstaben, Ziffern, `.` `_` `-`. Gleichzeitig der Name des Datenordners in `monitored-webpages/`. Ein neuer Name beginnt eine neue Historie. |
-| `url` | ja | Muss mit `http://` oder `https://` beginnen. |
-| `username` | nein | Nur zusammen mit `password` oder `password_env`. |
-| `password` | nein | Passwort im Klartext. |
-| `password_env` | nein | Name einer Umgebungsvariablen mit dem Passwort; hat Vorrang vor `password`. |
-| `login` | nein | `basic` (Standard, HTTP Basic) oder `wordpress` (WordPress-Anmeldeformular), siehe oben. |
-| `login_url` | nein | Adresse des Anmeldeformulars bei `wordpress`; Standard `<Webseite>/wp-login.php`. |
-| `accept_status` | nein | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten. |
-| `ignore` | nein | Zeilen, die beim Vergleich ausgelassen werden, siehe unten. |
+| Feld                 | Pflicht | Beschreibung                                                                                                                                  |
+|----------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| Kurzname (Schlüssel) | ja      | Buchstaben, Ziffern, `.` `_` `-`. Gleichzeitig der Name des Datenordners in `monitored-webpages/`. Ein neuer Name beginnt eine neue Historie. |
+| `url`                | ja      | Muss mit `http://` oder `https://` beginnen.                                                                                                  |
+| `username`           | nein    | Nur zusammen mit `password` oder `password_env`.                                                                                              |
+| `password`           | nein    | Passwort im Klartext.                                                                                                                         |
+| `password_env`       | nein    | Name einer Umgebungsvariablen mit dem Passwort; hat Vorrang vor `password`.                                                                   |
+| `login`              | nein    | `basic` (Standard, HTTP Basic) oder `wordpress` (WordPress-Anmeldeformular), siehe oben.                                                      |
+| `login_url`          | nein    | Adresse des Anmeldeformulars bei `wordpress`; Standard `<Webseite>/wp-login.php`.                                                             |
+| `accept_status`      | nein    | Liste von HTTP-Fehlercodes, deren Inhalt trotzdem verwendet wird, siehe unten.                                                                |
+| `ignore`             | nein    | Zeilen, die beim Vergleich ausgelassen werden, siehe unten.                                                                                   |
 
 Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
 
@@ -188,7 +227,15 @@ Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler,
 - Die Erfassungsdateien bleiben vollständig; die Regeln wirken nur beim Vergleich. Eine neue Regel wirkt deshalb auch auf bestehende Erfassungen, und wird sie entfernt, gilt wieder der volle Vergleich.
 - Fehlerhafte Regeln (falscher Typ, ungültiger regulärer Ausdruck, unbekannter Schlüssel) werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
+<<<<<<< Updated upstream
+
 ### Einschränkung: andere Anmeldeformulare
+
+=======
+
+#### `ignore.elements`: ganze HTML-Bereiche entfernen
+
+> > > > > > > Stashed changes
 
 Neben HTTP Basic wird nur das WordPress-Anmeldeformular unterstützt.
 
@@ -198,29 +245,170 @@ Neben HTTP Basic wird nur das WordPress-Anmeldeformular unterstützt.
 
 Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.example.json). Alle Schlüssel sind optional.
 
-| Schlüssel | Standard | Bedeutung |
-|---|---|---|
-| `webpages_file` | `webpages.json` | Name der Webseiten-Liste im Projektordner |
-| `report_file` | `REPORT-of-every-run-last-3-days.txt` | Name der Report-Datei im Projektordner |
-| `daily_report_file` | `REPORT-daily-summary.txt` | Name des Daily Reports (Tagesvergleich) |
-| `daily_compare_hours` | `23` | Mindestalter der Vergleichserfassung für den Daily Report |
-| `capture_keep_hours` | `48` | Wie lange Erfassungsdateien aufbewahrt werden (Stunden) |
-| `report_days` | `3` | Wie viele Tage Läufe im Report bleiben |
-| `max_change_lines` | `15` | Änderungszeilen pro Webseite im Report |
-| `timeout_seconds` | `45` | Zeitlimit pro Abruf |
-| `user_agent` | Chrome-ähnliche Zeichenkette | Browser-Kennung, die bei jedem Abruf gesendet wird |
-| `ignored_url_params` | `ver`, `sid`, … | URL-Parameter, die beim Vergleich ignoriert werden |
-| `image_hash` | `true` | Bilder herunterladen und ihren Inhalt vergleichen (`false`: nur URL und Alt-Text) |
-| `image_max_count` | `50` | Max. heruntergeladene Bilder pro Seite |
-| `image_max_bytes` | `5000000` | Max. gelesene Bytes pro Bild |
-| `image_timeout_seconds` | `15` | Zeitlimit pro Bild |
-| `console_progress` | `true` | Fortschritt pro Webseite im Terminal-Fenster anzeigen |
+| Schlüssel               | Standard                              | Bedeutung                                                                         |
+|-------------------------|---------------------------------------|-----------------------------------------------------------------------------------|
+| `webpages_file`         | `webpages.json`                       | Name der Webseiten-Liste im Projektordner                                         |
+| `report_file`           | `REPORT-of-every-run-last-3-days.txt` | Name der Report-Datei im Projektordner                                            |
+| `daily_report_file`     | `REPORT-daily-summary.txt`            | Name des Daily Reports (Tagesvergleich)                                           |
+| `daily_compare_hours`   | `23`                                  | Mindestalter der Vergleichserfassung für den Daily Report                         |
+| `capture_keep_hours`    | `48`                                  | Wie lange Erfassungsdateien aufbewahrt werden (Stunden)                           |
+| `report_days`           | `3`                                   | Wie viele Tage Läufe im Report bleiben                                            |
+| `max_change_lines`      | `15`                                  | Änderungszeilen pro Webseite im Report                                            |
+| `timeout_seconds`       | `45`                                  | Zeitlimit pro Abruf                                                               |
+| `user_agent`            | Chrome-ähnliche Zeichenkette          | Browser-Kennung, die bei jedem Abruf gesendet wird                                |
+| `ignored_url_params`    | `ver`, `sid`, …                       | URL-Parameter, die beim Vergleich ignoriert werden                                |
+| `image_hash`            | `true`                                | Bilder herunterladen und ihren Inhalt vergleichen (`false`: nur URL und Alt-Text) |
+| `image_max_count`       | `50`                                  | Max. heruntergeladene Bilder pro Seite                                            |
+| `image_max_bytes`       | `5000000`                             | Max. gelesene Bytes pro Bild                                                      |
+| `image_timeout_seconds` | `15`                                  | Zeitlimit pro Bild                                                                |
+| `console_progress`      | `true`                                | Fortschritt pro Webseite im Terminal-Fenster anzeigen                             |
 
-Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis.
+<<<<<<< Updated upstream
+
+# Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis.
+
+| `check_interval_hours` | `1` | Prüfung alle N Stunden: `1`, `2`, `3`, `4`, `6`, `8`, `12` oder `24` (siehe [Zeitplan](#zeitplan-st%C3%BCndlicher-start-und-pr%C3%BCfintervall)) |
+| `check_anchor_hour` | `0` | Stunde (0–23), ab der das Prüfraster beginnt |
+| `intensive_check_interval_hours` | `0` | `0` = aus; N = geänderte oder nicht erreichbare Webseiten nach N Stunden erneut prüfen (siehe [Intensive Prüfung](#intensive-pr%C3%BCfung-ge%C3%A4nderter-und-gest%C3%B6rter-webseiten)) |
+| `mail_mode` | `none` | `none` = das Skript versendet keine Mail, `script` = das Skript versendet den Daily Report per SMTP (siehe [Mail](#mail-versand-durch-das-skript)) |
+| `mail_condition` | `always` | `always` = Mail nach jeder Prüfung, `on_change` = nur wenn eine Änderung oder ein Fehler festgestellt wurde |
+| `smtp` | Gmail, Port 587, STARTTLS | SMTP-Server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
+| `mail` | – | `sender`, `recipients` (Liste), `subject_prefix` (Standard `[Webpage Monitoring]`) |
+| `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (Standard `60`, gilt auch für manuelle Starts, `0` = keine Pause), siehe [Dev-Modus](#dev-modus-sichtbares-terminal-fenster) |
+
+Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis. Schlüssel, die mit `_` beginnen, sind Kommentare (siehe [Kommentare](#kommentare)). Unbekannte Schlüssel in `secrets.json` werden vermerkt, wenn die Datei für eine Mail gelesen wird.
+
+## Zeitplan: stündlicher Start und Prüfintervall
+
+Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfung aller Webseiten fällig ist:
+
+- **Auf dem Prüfraster:** Geprüft wird zu den Stunden `check_anchor_hour + n × check_interval_hours`. Beispiel: `"check_interval_hours": 6` und `"check_anchor_hour": 5` ergeben Prüfungen um 05:00, 11:00, 17:00 und 23:00 Uhr.
+- **Nachholen:** War der Computer zu einer Rasterstunde ausgeschaltet, wird beim nächsten stündlichen Start geprüft, sobald die letzte reguläre Prüfung älter als das Intervall ist. Der Zeitpunkt der letzten regulären Prüfung wird aus `state.json` gelesen (fehlt die Datei: aus `REPORT-of-every-run-last-3-days.txt`).
+- **Keine Prüfung fällig:** Das Skript endet sofort mit Exit-Code 0. Es wird nichts in die Reports geschrieben, keine Mail versendet und kein Fenster geöffnet.
+- Mit `"check_interval_hours": 1` (Standard) ist jeder Start eine Prüfung, wie in früheren Versionen.
+- `python webpages_monitor.py --force` prüft sofort, unabhängig vom Zeitplan.
+
+### Intensive Prüfung geänderter und gestörter Webseiten
+
+Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_hours`; `0` = aus, Standard) werden Webseiten, die **geändert** oder **nicht erreichbar** waren, **N Stunden später** erneut geprüft – nur diese Webseiten, nicht die ganze Liste:
+
+- **Reguläre Prüfung:** Alle geänderten und alle nicht erreichbaren Webseiten kommen auf die Intensiv-Liste.
+- **Intensive Prüfung:** Abgerufen werden nur die Webseiten der Intensiv-Liste.
+  - Hat mindestens eine Webseite **neue Inhalte**, wird eine Mail versendet und die Liste neu gebildet: alle Webseiten, die in dieser Prüfung geändert oder nicht erreichbar waren. N Stunden später folgt die nächste intensive Prüfung.
+  - Hat keine Webseite neue Inhalte, wird **keine Mail** versendet und die Liste geleert: keine weitere intensive Prüfung, auch wenn Webseiten noch immer nicht erreichbar sind.
+- Die nächste reguläre Prüfung ersetzt die Liste immer durch ihr eigenes Ergebnis.
+- Erstläufe (neu eingetragene Webseiten) kommen nicht auf die Liste.
+
+| Zeit  | Beispiel: regulär alle 4 Stunden ab 03:00, intensiv nach 1 Stunde    | Mail                    | Intensiv-Liste |
+|-------|----------------------------------------------------------------------|-------------------------|----------------|
+| 03:00 | Reguläre Prüfung aller Webseiten: A geändert, B nicht erreichbar     | ja                      | A, B           |
+| 04:00 | Intensive Prüfung von A und B: A erneut geändert, B nicht erreichbar | ja                      | A, B           |
+| 05:00 | Intensive Prüfung von A und B: A unverändert, B nicht erreichbar     | nein                    | leer           |
+| 06:00 | keine Prüfung                                                        | –                       | leer           |
+| 07:00 | Reguläre Prüfung aller Webseiten                                     | gemäss `mail_condition` | neu            |
+
+Variante: Ist B um 04:00 wieder erreichbar und hat neue Inhalte, A hingegen ist unverändert, wird eine Mail versendet und um 05:00 nur B geprüft.
+
+Hinweis: Ändert sich eine Webseite bei jedem Abruf (z. B. Zähler, Datum), gibt es bis zur nächsten regulären Prüfung jede Stunde eine Mail. Abhilfe: ein `ignore`-Eintrag für diese Webseite.
+
+- Fällt eine intensive Prüfung auf eine reguläre Stunde, übernimmt die reguläre Prüfung.
+- Der Lauf-Abschnitt der Mail heisst `=== Intensive run … ===` und nennt die Anzahl abgerufener Webseiten, z. B. `2 of 32 webpages`.
+- Im Run-Report steht `Intensive check: 2 webpages (changed or not reachable at the previous check)`; nicht abgerufene Webseiten erscheinen dort nicht. Der Daily Report wird nach jeder Prüfung für alle Webseiten neu geschrieben.
+- Der Zustand (letzte reguläre Prüfung, Webseiten im Intensiv-Modus) steht in `state.json` im Projektordner (nicht in Git; vom Skript geschrieben, nicht bearbeiten). Fehlt die Datei, wird der Zeitpunkt der letzten Prüfung aus dem Report gelesen.
+- `--force` prüft immer alle Webseiten.
+
+### Kommandozeilen-Optionen
+
+| Option        | Bedeutung                                                                                                 |
+|---------------|-----------------------------------------------------------------------------------------------------------|
+| *(keine)*     | Prüfen, falls laut Zeitplan fällig                                                                        |
+| `--force`     | Sofort prüfen, auch wenn keine Prüfung fällig ist                                                         |
+| `--test-mail` | Testmail senden (Inhalt: aktueller Daily Report) und beenden; funktioniert auch mit `"mail_mode": "none"` |
+
+Hierzu gibt es auch eine Batch-Datei, welche diese Optionen bequem in einem Auswahlmenu anbietet:<br />
+Datei `Menu for webpage-monitor-py.bat`
+
+## Mail-Versand durch das Skript
+
+Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#optional-benachrichtigung-mit-claude)) kann das Skript den Daily Report selbst per Mail versenden.
+
+1. In `settings.json`: `"mail_mode": "script"` setzen und `smtp` sowie `mail` ausfüllen:
+
+   ```json
+   "mail_mode": "script",
+   "mail_condition": "always",
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
+   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   ```
+2. `secrets.example.json` nach `secrets.json` kopieren und das SMTP-Passwort eintragen. Bei Gmail ist das ein *App-Passwort* (Google-Konto → Sicherheit → Bestätigung in zwei Schritten → App-Passwörter), nicht das normale Kontopasswort.
+3. Testen: `python webpages_monitor.py --test-mail`
+
+Verhalten:
+
+- Die Mail wird nach jeder Prüfung versendet. Sie beginnt mit einer zweizeiligen Zusammenfassung (dieser Lauf und Daily Report), dann folgen die Details dieses Laufs (Webseiten mit neuen Infos, Webseiten mit Fehlern), danach der Inhalt von `REPORT-daily-summary.txt` (Vergleich mit der Erfassung von vor rund einem Tag):
+
+```
+This run:      1 changed, 0 errors since last run 1 hour ago
+Daily report:  2 changed, 2 without comparison
+
+
+=== Run 2026-10-22 13:00 (26 webpages) ===
+
+New information on:
+-  https://www.example-alpha.com/news/
+
+Errors:
+(none)
+
+
+
+=== Daily report 2026-10-22 13:00 ===
+...
+```
+
+- Der Betreff ist kurz und nennt nur das Ergebnis dieses Laufs, z. B. `[Webpage Monitoring] 0 changed, 0 errors since 1 hour` (unter einer Stunde in Minuten, sonst in ganzen Stunden).
+- `"mail_condition": "on_change"` versendet nur dann eine Mail, wenn eine Änderung oder ein Fehler festgestellt wurde (Exit-Code 1 oder 2). Erstläufe allein zählen nicht als Änderung.
+- Das Ergebnis wird am Ende des Laufs in `REPORT-of-every-run-last-3-days.txt` vermerkt (`Mail: daily report sent to …` oder `ERROR: Mail could not be sent: …`). Ein fehlgeschlagener Versand bricht den Lauf nie ab.
+- Mit `use_ssl: true` wird eine SMTPS-Verbindung verwendet (meist Port 465), sonst eine normale Verbindung mit STARTTLS (Port 587).
+- Es wird nur die Python-Standardbibliothek verwendet; ein zusätzliches Paket ist nicht nötig.
+
+## Dev-Modus: sichtbares Terminal-Fenster
+
+`install_task.ps1` registriert die Aufgabe mit `pythonw.exe`, das **ohne** Fenster läuft. Um die geplanten Läufe zu beobachten, wird in `settings.json` der Dev-Modus eingeschaltet:
+
+```json
+"dev_mode": { "enabled": true, "keep_open_after_run_seconds": 60 }
+```
+
+- Bei jeder fälligen Prüfung startet sich das Skript in einem sichtbaren Terminal-Fenster neu und zeigt den Fortschritt.
+- Nach dem Lauf bleibt das Fenster `keep_open_after_run_seconds` Sekunden offen; *Enter* schliesst es sofort.
+- Stündliche Starts ohne fällige Prüfung öffnen kein Fenster.
+- Die Aufgabe muss nicht neu registriert werden; zurückschalten mit `"enabled": false`.
+
+> > > > > > > Stashed changes
 
 ## Geplante Läufe unter Windows (Aufgabenplanung)
 
-Beispiel: täglich um 06:00 Uhr. Für weitere Uhrzeiten den Befehl mit anderem Namen (`/tn`) und anderer Uhrzeit (`/st`) wiederholen. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
+# <<<<<<< Updated upstream
+
+### Empfohlen: stündliche Aufgabe mit `install_task.ps1`
+
+In PowerShell im Projektordner:
+
+```
+.\install_task.ps1              # Aufgabe "Webpages-Monitor" registrieren / aktualisieren (jede Stunde, zur vollen Stunde)
+.\install_task.ps1 -Remove      # Aufgabe entfernen
+.\install_task.ps1 -TaskName "My-Monitor"   # anderer Aufgabenname
+```
+
+Die Aufgabe startet das Skript jede Stunde mit `pythonw.exe` (ohne Fenster); welche Stunden geprüft werden, wird mit `check_interval_hours` und `check_anchor_hour` festgelegt. Blockiert PowerShell das Skript, einmalig mit `powershell -ExecutionPolicy Bypass -File .\install_task.ps1` starten.
+
+### Alternative: feste Uhrzeiten
+
+Das Skript kann auch zu festen Uhrzeiten gestartet werden. Dann `"check_interval_hours": 1` (Standard) setzen, damit jeder Start eine Prüfung ist.
+
+> > > > > > > Stashed changes
+> > > > > > > Beispiel: täglich um 06:00 Uhr. Für weitere Uhrzeiten den Befehl mit anderem Namen (`/tn`) und anderer Uhrzeit (`/st`) wiederholen. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
 
 Auf englischsprachigen Windows-Systemen heisst die Aufgabenplanung „Task Scheduler“.
 
@@ -255,20 +443,13 @@ Testen: `schtasks /run /tn "Webpages Monitor 0600"`. Löschen: `schtasks /delete
 
 Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf automatisch angelegt):
 
-- `webpages_monitor.py`
-  Das Skript.
-- `webpages.json`
-  Eigene Webseiten-Liste (nicht in Git).
-- `settings.json`
-  Optionale Einstellungen (nicht in Git).
-- `REPORT-of-every-run-last-3-days.txt`
-  Protokollierung von jedem Lauf der letzten drei Tage.
-- `REPORT-daily-summary.txt`
-  Report mit einem Tagesvergleich, wird bei jedem Lauf neu geschrieben. Geeignet, um sich diesen automatisiert per Mail zustellen zu lassen (siehe [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)).
-- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt`
-  Inhalt eines Abrufs (Text, IMAGES, LINKS); alle Erfassungen werden 48 Stunden aufbewahrt.
-- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`
-  Letzte Erfassung dieses Tages, dauerhaft im Archiv abgelegt.
+- `webpages_monitor.py` Das Skript.
+- `webpages.json` Eigene Webseiten-Liste (nicht in Git).
+- `settings.json` Optionale Einstellungen (nicht in Git).
+- `REPORT-of-every-run-last-3-days.txt` Protokollierung von jedem Lauf der letzten drei Tage.
+- `REPORT-daily-summary.txt` Report mit einem Tagesvergleich, wird bei jedem Lauf neu geschrieben. Geeignet, um sich diesen automatisiert per Mail zustellen zu lassen (siehe [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)).
+- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt` Inhalt eines Abrufs (Text, IMAGES, LINKS); alle Erfassungen werden 48 Stunden aufbewahrt.
+- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt` Letzte Erfassung dieses Tages, dauerhaft im Archiv abgelegt.
 
 ### Aufbau von `REPORT-of-every-run-last-3-days.txt`
 
@@ -335,11 +516,11 @@ Writing reports ... done
 
 ### Exit-Codes
 
-| Code | Bedeutung |
-|---|---|
-| 0 | Keine Änderung und keine Fehler (auch bei Erstläufen) |
-| 1 | Änderung, Fehler bei einer Webseite oder Fehler in einem Listen- oder Einstellungseintrag |
-| 2 | Webseiten-Liste unbrauchbar oder Programmfehler |
+| Code | Bedeutung                                                                                 |
+|------|-------------------------------------------------------------------------------------------|
+| 0    | Keine Änderung und keine Fehler (auch bei Erstläufen)                                     |
+| 1    | Änderung, Fehler bei einer Webseite oder Fehler in einem Listen- oder Einstellungseintrag |
+| 2    | Webseiten-Liste unbrauchbar oder Programmfehler                                           |
 
 ## Was die aktuelle Version nicht kann
 
@@ -352,7 +533,7 @@ Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
 - **Nur HTML-Seiten:** PDF-, Word- oder andere Dateien werden nicht inhaltlich überwacht; erfasst wird nur der Link darauf. Liefert eine URL keinen HTML-Inhalt, wird das als Fehler gemeldet.
 - **Kein Bot-Schutz:** Seiten mit Captcha oder Browser-Prüfung (z. B. „Checking your browser…“) können nicht zuverlässig abgerufen werden; gespeichert wird dann allenfalls die Prüfseite statt des eigentlichen Inhalts.
 - **Nacheinander, nicht parallel:** Die Webseiten werden einzeln abgerufen. Nicht erreichbare Seiten verlängern den Lauf jeweils bis zum Timeout (Standard 45 Sekunden).
-- **Keine Prüfung von `robots.txt`:** Die Abrufhäufigkeit sollte deshalb massvoll gewählt werden.
+- **Keine Prüfung von** `robots.txt`**:** Die Abrufhäufigkeit sollte deshalb massvoll gewählt werden.
 
 ### Anmeldung (Login)
 
