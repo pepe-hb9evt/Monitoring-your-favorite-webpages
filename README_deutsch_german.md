@@ -12,7 +12,7 @@ Dieses Python-Skript überwacht deine Lieblingswebseiten und informiert, wenn Ä
 
 Das Skript arbeitet deine Liste von Webseiten ab und speichert bei jedem Lauf den aktuellen sichtbaren Inhalt jeder Webseite und vergleicht ihn mit der letzten Speicherung. Danach werden zwei Report-Dateien geschrieben, in denen für jede Webseite aufgelistet wird, ob Änderungen festgestellt worden sind und wenn ja, was sich konkret geändert hat. Optional wirst du danach per Mail informiert.
 
-Dazu wird ein PC/Notebook benötigt, der rund um die Uhr oder zumindest tagsüber ständig läuft und mit dem Internet verbunden ist.
+Dazu wird ein PC/Notebook benötigt, der rund um die Uhr oder zumindest  tagsüber ständig läuft und mit dem Internet verbunden ist.
 
 Dieses Projekt ist - per heutigem Stand - sehr spartanisch umgesetzt. Insbesondere die Mails sind von der Darstellung her nicht das Gelbe vom Ei. Zudem hat dieses Projekt diverse Einschränkungen (siehe nachfolgend im gleichnamigen Kapitel).
 
@@ -40,7 +40,7 @@ Dieses README gibt einen kompakten Überblick. Für die vollständige Referenz k
   - `REPORT-of-every-run-last-3-days.txt`: alle Läufe der letzten drei Tage, neuester zuoberst.
 
   - `REPORT-daily-summary.txt`: Tagesvergleich (neueste Erfassung mit jener, die mindestens 23 Stunden alt ist).
-- Optional kannst du dich per Mail über erfolgte Änderungen an den von dir überwachten Webseiten informieren lassen. Über das parametrierbare Prüfungsintervall definiert sich auch, in welchem Rhythmus du ein solches Mail bekommst.
+- Optional kannst du dich per Mail über erfolgte Änderungen an den von dir überwachten Webseiten informieren lassen. Über das parametrierbare Prüfungsintervall definiert sich auch, in welchem   Rhythmus du ein solches Mail bekommst.
 
 In `settings.json` können diverse Parameter verändert werden (Dateinamen, Aufbewahrung, Timeout, User-Agent, Prüfintervall, Mail, Dev-Modus, …).
 
@@ -221,7 +221,7 @@ Folgende Textdateien werden bei jedem Lauf erzeugt:
 - `REPORT-daily-summary.txt`
   Report mit einem Tagesvergleich. Kann vom Skript selbst per Mail versendet werden (`"mail_mode": "script"`).
 - `monitored-webpages/<shortname>/captured_*.txt` 
-  Alle Erfassungen werden für 48 Stunden aufbewahrt. Anhand diesen wird detektiert, was sich seit letztem Lauf und innert den letzten 24 Stunden geändert hat (vgl. oben die zwei "Reports").
+  Alle Erfassungen werden für 48 Stunden aufbewahrt. Anhand diesen wird detektiert, was sich seit letztem  Lauf und innert den letzten 24 Stunden geändert hat (vgl. oben die zwei "Reports").
 - `monitored-webpages/<shortname>/archive/*.txt`  
   Eine Erfassung pro Tag wird dauerhaft im Archiv abgelegt.
 
@@ -246,5 +246,7 @@ Aufbau der Reports und Exit-Codes: [DOCUMENTATION_deutsch_german.md → Ausgabe]
 
 ## Autoren
 
-- Pepe HB9EVT <br>https://github.com/pepe-hb9evt
-- Claude (Anthropic) <br>(A.I. im *Large Language Model* Modus)
+- Pepe HB9EVT
+  https://github.com/pepe-hb9evt
+- Claude (Anthropic)
+  (A.I. im *Large Language Model* Modus)
