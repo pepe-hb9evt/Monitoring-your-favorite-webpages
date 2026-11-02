@@ -964,7 +964,7 @@ def check_due(now, state):
 MAIL_FOOTER = ("- - - - -\n"
                "Sent by: Monitoring your favorite webpages (Python Tool)\n"
                "Source:  https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages\n"
-               "Author:  Pepe HB9EVT, with Claude (Anthropic)\n")
+               "Author:  Pepe HB9EVT, with vibe coding support of AI Claude (Anthropic)\n")
 SECRETS_PROBLEMS = []  # notes about secrets.json (unknown keys), filled when the file is read
 
 
