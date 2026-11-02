@@ -238,15 +238,25 @@ Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#ou
 
 <br>
 
-## License
+## Vibe coding declaration
 
-[MIT](LICENSE)
+This software was created by **vibe coding**: the entire source code was written by the AI Claude (Anthropic). As the author, I specified the requirements and the intended functionality and extended them in several stages; the AI wrote and adapted the code accordingly each time. The project documentation (README etc.) was also written with AI support.
+
+I tested the result thoroughly with regard to its functionality. The tests were limited to the externally observable behavior (**black-box tests**).
+
+I have neither read the Python code itself nor reviewed it with regard to quality or security. The only thing checked was whether the code is well commented in English, as this was one of the requirements.
+
+Use at your own risk (see also the [license](LICENSE)). This applies in particular because the script processes credentials (`webpages.json`, `secrets.json`). Anyone who reviews the code and finds bugs or vulnerabilities is warmly invited to open an [issue on GitHub](https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages).
 
 <br>
 
-## Authors
+## License and author
 
-- Pepe HB9EVT
-  https://github.com/pepe-hb9evt
-- Claude (Anthropic)
-  (AI in *Large Language Model* mode)
+**License:**
+
+[MIT](LICENSE)
+
+**Author:**
+
+Pepe HB9EVT, https://github.com/pepe-hb9evt
+with support from the AI Claude by Anthropic (see chapter [Vibe coding declaration](#vibe-coding-declaration))

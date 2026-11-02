@@ -6,6 +6,8 @@ Dokumentation zum Projekt "**[Monitoring-your-favorite-webpages](https://github.
 
 Dies ist eine ausführliche Dokumentation des zugehörigen Python-Skripts. Für einen kurzen Überblick konsultiere das deutschsprachige [README](README_deutsch_german.md).
 
+<br>
+
 ## Inhalt
 
 - [So funktioniert es](#so-funktioniert-es)
@@ -18,6 +20,10 @@ Dies ist eine ausführliche Dokumentation des zugehörigen Python-Skripts. Für 
 - [Ausgabe](#ausgabe)
 - [Was die aktuelle Version nicht kann](#was-die-aktuelle-version-nicht-kann)
 - [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)
+- [Vibe-Coding-Deklaration](#vibe-coding-deklaration)
+- [Lizenz und Autor](#lizenz-und-autor)
+
+<br>
 
 ## So funktioniert es
 
@@ -35,6 +41,8 @@ Das Skript (`webpages_monitor.py`)
 - prüft für jede Webseite anhand der Erfassungsdateien, ob es Unterschiede zwischen dem jetzigen und dem vorherigen Lauf gibt, und protokolliert das Ergebnis in `REPORT-of-every-run-last-3-days.txt` (neuester Lauf stets zuoberst; Läufe, die älter als drei Tage sind, werden automatisch entfernt).
 - vergleicht zudem für jede Webseite die jetzige Erfassung mit der neuesten, die mindestens 23 Stunden alt ist, und protokolliert das Ergebnis in `REPORT-daily-summary.txt` (gibt es keine Erfassung, die mindestens 23 Stunden alt ist, wird stattdessen die älteste vorhandene herangezogen).
 - ist parametrierbar: Benutzerabhängige Werte (Dateinamen, Aufbewahrung, Timeout, User-Agent, …) stehen in einer optionalen `settings.json`.
+
+<br>
 
 ### Bilderkennung
 
@@ -62,15 +70,21 @@ Vergleich: Die Zeilen werden wie Text verglichen. Fehlt auf einer Seite der Hash
 
 Nicht erkannt werden: CSS-Hintergrundbilder, `<picture><source>`, `<canvas>` und per JavaScript geladene Bilder. Bilder, die sich bei jedem Abruf ändern (Webcams, Captchas, zufällige Banner), werden bei jedem Lauf gemeldet; in diesem Fall `"image_hash": false` setzen.
 
+<br>
+
 ## Webseiten-Liste (`webpages.json`)
 
 Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist ein JSON-Objekt, das Kurznamen den Webseiten zuordnet. Eine kommentierte Vorlage mit allen Formaten ist [`webpages.example.json`](webpages.example.json).
+
+<br>
 
 ### Kurzform
 
 ```json
 "alpha-news": "https://example-alpha.com/de/news/"
 ```
+
+<br>
 
 ### Langform
 
@@ -80,11 +94,15 @@ Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist
 
 Für was die Langform benötigt wird,  zeigen die folgenden Varianten.
 
+<br>
+
 ### Webseiten mit Logins
 
 Unterstützt wird das Login mit HTTP Basic sowie das WordPress-Anmeldeformular.
 
 **Nicht unterstützt** werden andere Anmeldeformulare (z. B. MediaWiki, DokuWiki).
+
+<br>
 
 #### Login HTTP Basic mit Passwort als Umgebungsvariable gespeichert (empfohlen)
 
@@ -104,6 +122,8 @@ setx MONITOR_PW_INTERNAL "secret-password"
 
 Ist die Umgebungsvariable beim Lauf nicht gesetzt, wird die Webseite übersprungen; im Report steht dann `Entry '…' skipped: environment variable '…' is not set`. Das gilt für alle Login-Arten mit `password_env`.
 
+<br>
+
 #### Login HTTP Basic mit Passwort im Klartext (nicht empfohlen)
 
 ```json
@@ -113,6 +133,8 @@ Ist die Umgebungsvariable beim Lauf nicht gesetzt, wird die Webseite übersprung
   "password": "my-password"
 }
 ```
+
+<br>
 
 #### Login mit Anmeldeformular (WordPress)
 
@@ -135,6 +157,8 @@ Viele Vereins- und Verbandsseiten nutzen statt HTTP Basic das normale WordPress-
 - Dieselbe Prüfung gilt auch für Webseiten ohne `login`: Leitet eine Seite plötzlich auf eine Anmeldeseite um, wird das als Fehler gemeldet, statt die Anmeldeseite zu speichern.
 - Anmeldeformulare mit Captcha oder Zwei-Faktor-Anmeldung können nicht verwendet werden.
 
+<br>
+
 ### Testläufe mit `STOP`
 
 Für einen Test mit nur ein oder zwei Webseiten diese zuoberst in die Liste setzen und darunter einen Eintrag `STOP` einfügen. Alle Einträge nach `STOP` werden übersprungen:
@@ -152,6 +176,8 @@ Für einen Test mit nur ein oder zwei Webseiten diese zuoberst in die Liste setz
 - Das Terminal zeigt z. B. `… – 2 webpages (STOP in webpages.json: 28 webpages skipped)`, und beide Reports beginnen mit `Note: STOP in webpages.json – … webpages after STOP skipped`; ein vergessenes `STOP` fällt so auf.
 - Um wieder die ganze Liste zu überwachen, die Zeile löschen oder in `_STOP` umbenennen.
 
+<br>
+
 ### Kommentare
 
 JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ignoriert:
@@ -163,6 +189,8 @@ JSON kennt keine Kommentare. Schlüssel, die mit `_` beginnen, werden deshalb ig
 Das gilt für alle JSON-Dateien des Projekts (`webpages.json`, `settings.json`, `secrets.json`) und auf jeder Ebene, z. B. auch innerhalb eines Webseiten-Eintrags, innerhalb von `ignore` oder innerhalb von `smtp`. Ein Kommentar-Schlüssel darf mehrfach vorkommen.
 
 Jeder andere nicht erwartete Schlüssel (z. B. ein vertipptes `"pasword"`) wird ebenfalls ignoriert, aber immer im Report als `ERROR: … unknown key …` vermerkt. Der Lauf wird nicht abgebrochen, und die Webseite wird weiter überwacht.
+
+<br>
 
 ### Regeln
 
@@ -180,9 +208,13 @@ Jeder andere nicht erwartete Schlüssel (z. B. ein vertipptes `"pasword"`) wird 
 
 Ein fehlerhafter Eintrag wird übersprungen und im Report vermerkt. Unbekannte Schlüssel in einem Eintrag werden nur vermerkt; der Eintrag wird trotzdem verwendet. Fehlt die Datei, ist sie kein gültiges JSON oder enthält sie keine einzige gültige Webseite, endet der Lauf kontrolliert mit einem Protokolleintrag.
 
+<br>
+
 ### `accept_status`
 
 Optional pro Webseite: `"accept_status": [500]` verwendet den Inhalt auch dann, wenn der Server mit einem dieser HTTP-Fehlercodes antwortet (für Server, die eine normale Seite mit falschem Statuscode ausliefern). Im Report erscheint dann ein Hinweis. Nur für Webseiten verwenden, bei denen das bekannt ist; sonst würden echte Fehlerseiten als Inhalt gespeichert.
+
+<br>
 
 ### `ignore`
 
@@ -205,6 +237,8 @@ Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler,
 - Die Erfassungsdateien bleiben vollständig; die Regeln wirken nur beim Vergleich. Eine neue Regel wirkt deshalb auch auf bestehende Erfassungen, und wird sie entfernt, gilt wieder der volle Vergleich.
 - Fehlerhafte Regeln (falscher Typ, ungültiger regulärer Ausdruck, unbekannter Schlüssel) werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
 
+<br>
+
 #### `ignore.elements`: ganze HTML-Bereiche entfernen
 
 Seitenbereiche, die sich ständig ändern (z. B. ein Kasten „Ähnliche Beiträge“ oder eine Fusszeile mit Zählern), lassen sich als Ganzes entfernen, mit einer Liste von CSS-Selektoren:
@@ -222,6 +256,8 @@ Seitenbereiche, die sich ständig ändern (z. B. ein Kasten „Ähnliche Beiträ
 - Selektoren: CSS-Syntax wie im Browser, z. B. `div.klassenname`, `#id`, `footer .widget`, `div[data-x="y"]`. `div.prop-list` trifft jedes `<div>`, dessen `class` `prop-list` enthält.
 - Anders als `text`/`images`/`links` wirkt diese Regel **bei der Extraktion**: Die entfernten Bereiche stehen nicht mehr in den Erfassungsdateien. Nach dem Hinzufügen (oder Entfernen) einer solchen Regel meldet der erste Lauf deshalb einmalig eine Änderung. Wer das vermeiden will, löscht vorher die alten Erfassungen der Webseite in `monitored-webpages\<Kurzname>`; der nächste Lauf ist dann ein Erstlauf.
 - Ungültige Selektoren werden übersprungen und im Report vermerkt; die Webseite selbst wird weiter überwacht.
+
+<br>
 
 ## Einstellungen (`settings.json`)
 
@@ -255,6 +291,8 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 
 Ungültige Werte oder unbekannte Schlüssel brechen einen Lauf nie ab: Es gilt der Standardwert, und im Report erscheint ein Hinweis. Schlüssel, die mit `_` beginnen, sind Kommentare (siehe [Kommentare](#kommentare)). Unbekannte Schlüssel in `secrets.json` werden vermerkt, wenn die Datei für eine Mail gelesen wird.
 
+<br>
+
 ## Zeitplan: stündlicher Start und Prüfintervall
 
 Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfung aller Webseiten fällig ist:
@@ -264,6 +302,8 @@ Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfu
 - **Keine Prüfung fällig:** Das Skript endet sofort mit Exit-Code 0. Es wird nichts in die Reports geschrieben, keine Mail versendet und kein Fenster geöffnet.
 - Mit `"check_interval_hours": 1` (Standard) ist jeder Start eine Prüfung, wie in früheren Versionen.
 - `python webpages_monitor.py --force` prüft sofort, unabhängig vom Zeitplan.
+
+<br>
 
 ### Intensive Prüfung geänderter Webseiten
 
@@ -282,6 +322,8 @@ Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_ho
 - Der Zustand (letzte reguläre Prüfung, Webseiten im Intensiv-Modus) steht in `state.json` im Projektordner (nicht in Git; vom Skript geschrieben, nicht bearbeiten). Fehlt die Datei, wird der Zeitpunkt der letzten Prüfung aus dem Report gelesen.
 - `--force` prüft immer alle Webseiten.
 
+<br>
+
 ### Kommandozeilen-Optionen
 
 | Option | Bedeutung |
@@ -289,6 +331,8 @@ Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_ho
 | *(keine)* | Prüfen, falls laut Zeitplan fällig |
 | `--force` | Sofort prüfen, auch wenn keine Prüfung fällig ist |
 | `--test-mail` | Testmail senden (Inhalt: aktueller Daily Report) und beenden; funktioniert auch mit `"mail_mode": "none"` |
+
+<br>
 
 ## Mail-Versand durch das Skript
 
@@ -312,7 +356,7 @@ Verhalten:
 
   ```
   === Check 2026-10-22 13:00 (26 webpages) ===
-
+  
   Previous check: 2 hours ago (2026-10-22 11:00)
   Since the previous check: 0 changed, 0 errors
 
@@ -330,20 +374,26 @@ Verhalten:
 - Mit `use_ssl: true` wird eine SMTPS-Verbindung verwendet (meist Port 465), sonst eine normale Verbindung mit STARTTLS (Port 587).
 - Es wird nur die Python-Standardbibliothek verwendet; ein zusätzliches Paket ist nicht nötig.
 
+<br>
+
 ## Dev-Modus: sichtbares Terminal-Fenster
 
 `install_task.ps1` registriert die Aufgabe mit `pythonw.exe`, das **ohne** Fenster läuft. Um die geplanten Läufe zu beobachten, wird in `settings.json` der Dev-Modus eingeschaltet:
 
 ```json
 "dev_mode": { "enabled": true, "keep_open_after_run_seconds": 60 }
-```
+  ```
 
 - Bei jeder fälligen Prüfung startet sich das Skript in einem sichtbaren Terminal-Fenster neu und zeigt den Fortschritt.
 - Nach dem Lauf bleibt das Fenster `keep_open_after_run_seconds` Sekunden offen; *Enter* schliesst es sofort.
 - Stündliche Starts ohne fällige Prüfung öffnen kein Fenster.
 - Die Aufgabe muss nicht neu registriert werden; zurückschalten mit `"enabled": false`.
 
+<br>
+
 ## Geplante Läufe unter Windows (Aufgabenplanung)
+
+<br>
 
 ### Empfohlen: stündliche Aufgabe mit `install_task.ps1`
 
@@ -357,6 +407,8 @@ In PowerShell im Projektordner:
 
 Die Aufgabe startet das Skript jede Stunde mit `pythonw.exe` (ohne Fenster); welche Stunden geprüft werden, wird mit `check_interval_hours` und `check_anchor_hour` festgelegt. Blockiert PowerShell das Skript, einmalig mit `powershell -ExecutionPolicy Bypass -File .\install_task.ps1` starten.
 
+<br>
+
 ### Alternative: feste Uhrzeiten
 
 Das Skript kann auch zu festen Uhrzeiten gestartet werden. Dann `"check_interval_hours": 1` (Standard) setzen, damit jeder Start eine Prüfung ist.
@@ -364,6 +416,8 @@ Das Skript kann auch zu festen Uhrzeiten gestartet werden. Dann `"check_interval
 Beispiel: täglich um 06:00 Uhr. Für weitere Uhrzeiten den Befehl mit anderem Namen (`/tn`) und anderer Uhrzeit (`/st`) wiederholen. Pfade anpassen; `where python` zeigt den vollständigen Pfad zu `python.exe`.
 
 Auf englischsprachigen Windows-Systemen heisst die Aufgabenplanung „Task Scheduler“.
+
+<br>
 
 ### Kommandozeile (`schtasks`)
 
@@ -375,6 +429,8 @@ schtasks /create /tn "Webpages Monitor 0600" /sc daily /st 06:00 /tr "cmd /c cd 
 
 Testen: `schtasks /run /tn "Webpages Monitor 0600"`. Löschen: `schtasks /delete /tn "Webpages Monitor 0600" /f`.
 
+<br>
+
 ### Grafische Oberfläche
 
 1. *Aufgabenplanung* öffnen → *Einfache Aufgabe erstellen* (oder *Aufgabe erstellen*).
@@ -385,12 +441,18 @@ Testen: `schtasks /run /tn "Webpages Monitor 0600"`. Löschen: `schtasks /delete
    - Starten in: der Projektordner
 4. Unter *Einstellungen*: *Aufgabe so schnell wie möglich nach einem verpassten Start ausführen* aktivieren.
 
+<br>
+
 ### Hinweise
 
 - „Nur ausführen, wenn der Benutzer angemeldet ist“ genügt, wenn der Computer läuft. Damit die Aufgabe auch ohne Anmeldung läuft, braucht sie ein gespeichertes Passwort; Umgebungsvariablen für `password_env` stehen dann nur zur Verfügung, wenn sie als Benutzer- oder Systemvariablen des Kontos gesetzt sind, das die Aufgabe ausführt.
 - Der Computer braucht während des Laufs eine Internetverbindung.
 
+<br>
+
 ## Ausgabe
+
+<br>
 
 ### Dateien
 
@@ -414,6 +476,8 @@ Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf au
   Inhalt eines Abrufs (Text, IMAGES, LINKS); alle Erfassungen werden 48 Stunden aufbewahrt.
 - `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`
   Letzte Erfassung dieses Tages, dauerhaft im Archiv abgelegt.
+
+<br>
 
 ### Aufbau von `REPORT-of-every-run-last-3-days.txt`
 
@@ -450,13 +514,19 @@ Neuester Lauf zuoberst; Läufe, die älter als drei Tage sind, werden beim näch
 
 Jeder Lauf vergleicht die neueste mit der zweitneuesten Erfassung einer Webseite. Jeder Lauf beginnt mit dem Abstand zum vorherigen Lauf (`Previous run: 47 minutes ago`; bis 99 Minuten in Minuten, ab 100 Minuten in Stunden, gerundet).
 
+<br>
+
 ### Erfassungsdateien
 
 Jeder erfolgreiche Abruf schreibt `captured_YYYY-MM-DD_HHHMM.txt` (z. B. `captured_2026-10-21_11H00.txt`). Erfassungen, die älter als 48 Stunden sind, werden beim nächsten Lauf gelöscht; die beiden neuesten Erfassungen einer Webseite bleiben immer erhalten. Das Archiv bewahrt dauerhaft eine Kopie pro Tag auf (die letzte des Tages).
 
+<br>
+
 ### Aufbau von `REPORT-daily-summary.txt`
 
 Wird nach jedem Lauf neu geschrieben, im gleichen Aufbau wie ein Lauf des Reports, mit der Kopfzeile `=== Daily report YYYY-MM-DD HH:MM ===`. Für jede Webseite wird die neueste Erfassung mit der neuesten aller Erfassungen verglichen, die mindestens 23 Stunden alt sind; gibt es keine solche, mit der ältesten vorhandenen. Die erste Zeile nennt das Alter der Vergleichserfassung, z. B. `Newest capture compared with the capture from 24 hours ago.`; war keine Erfassung alt genug, wird `(oldest capture available)` ergänzt. Webseiten, die im aktuellen Lauf fehlgeschlagen sind, stehen unter „No comparison possible“.
+
+<br>
 
 ### Terminal-Fenster
 
@@ -481,6 +551,8 @@ Window closes in 60 s - press Enter to close now.
 - Mit `"mail_mode": "script"` folgt nach den Reports die Zeile `Sending mail ... done`.
 - Ist keine Prüfung fällig, erscheint nur eine Zeile, z. B. `Webpages monitor – 2026-10-22 12:00 – no check due (last check 2026-10-22 11:00, next 2026-10-22 17:00). Use --force to check now.`
 
+<br>
+
 ### Exit-Codes
 
 | Code | Bedeutung |
@@ -489,9 +561,13 @@ Window closes in 60 s - press Enter to close now.
 | 1 | Änderung, Fehler bei einer Webseite, Fehler in einem Listen- oder Einstellungseintrag oder Mail konnte nicht versendet werden |
 | 2 | Webseiten-Liste unbrauchbar oder Programmfehler |
 
+<br>
+
 ## Was die aktuelle Version nicht kann
 
 Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
+
+<br>
 
 ### Abruf der Webseiten
 
@@ -502,11 +578,15 @@ Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
 - **Nacheinander, nicht parallel:** Die Webseiten werden einzeln abgerufen. Nicht erreichbare Seiten verlängern den Lauf jeweils bis zum Timeout (Standard 45 Sekunden).
 - **Keine Prüfung von `robots.txt`:** Die Abrufhäufigkeit sollte deshalb massvoll gewählt werden.
 
+<br>
+
 ### Anmeldung (Login)
 
 - Unterstützt werden nur **HTTP Basic** und das **WordPress-Anmeldeformular**.
 - **Nicht unterstützt** werden andere Anmeldeformulare (z. B. MediaWiki, DokuWiki, Joomla), Anmeldungen über Drittanbieter („Mit Google/Microsoft anmelden“, SSO), Zwei-Faktor-Anmeldung und Anmeldeformulare mit Captcha.
 - Anmeldungen aus dem eigenen Browser (Cookies) können nicht übernommen werden.
+
+<br>
 
 ### Vergleich und Darstellung der Änderungen
 
@@ -519,6 +599,8 @@ Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
 - **Versteckte Inhalte:** Erkannt werden nur Elemente, die direkt im HTML versteckt sind (`hidden`, `aria-hidden="true"`, `display:none` im `style`-Attribut). Inhalte, die über CSS-Klassen versteckt sind (z. B. zugeklappte Menüs), werden trotzdem erfasst und verglichen.
 - **Gekürzte Meldungen:** Pro Webseite zeigt der Report höchstens `max_change_lines` Änderungszeilen (Standard 15); der Rest wird nur gezählt.
 
+<br>
+
 ### Benachrichtigung und Betrieb
 
 - **Nur Mail:** Das Skript kann den Daily Report per SMTP versenden (siehe [Mail](#mail-versand-durch-das-skript)); andere Benachrichtigungen (Push, Messenger) werden nicht unterstützt. Die Mail ist reiner Text ohne Anhang.
@@ -530,6 +612,33 @@ Die folgenden Punkte unterstützt das Skript bewusst oder vorläufig nicht:
 
 Aktuell ist vom Autor keine Weiterentwicklung dieses Projekts geplant, um gewisse Einschränkungen zu beseitigen. Aber vielleicht willst du ja forken und es weiterentwickeln.
 
+<br>
+
 ## Optional: Benachrichtigung mit Claude
 
 Alternative zum [Mail-Versand durch das Skript](#mail-versand-durch-das-skript) (dann `"mail_mode": "none"` belassen, damit keine Mail doppelt versendet wird). Bei Bedarf lässt sich in der Claude-Desktop-App eine geplante Aufgabe einrichten, die `REPORT-daily-summary.txt` nach den Läufen liest (z. B. 10 Minuten später) und per Mail versendet.
+
+<br>
+
+## Vibe-Coding-Deklaration
+
+Diese Software wurde mittels **Vibe Coding** erstellt: Der gesamte Quellcode wurde von der KI Claude (Anthropic) geschrieben. Als Autor habe ich die Anforderungen und die beabsichtigte Funktionalität spezifiziert und in mehreren Etappen ergänzt; die KI hat den Code jeweils entsprechend geschrieben und angepasst. Auch die Projektdokumentation (README usw.) wurde KI-unterstützt verfasst.
+
+Das Ergebnis habe ich bezüglich Funktionalität eingehend geprüft. Die Tests beschränkten sich auf das von aussen beobachtbare Verhalten (**Black-Box-Tests**).
+
+Den Python-Code selbst habe ich weder gelesen noch bezüglich Qualität oder Sicherheit geprüft. Geprüft wurde lediglich, ob der Code gut und in englischer Sprache kommentiert ist, da dies eine der Vorgaben war.
+
+Die Nutzung erfolgt auf eigenes Risiko (siehe auch die [Lizenz](LICENSE)). Das gilt besonders, weil das Skript Zugangsdaten verarbeitet (`webpages.json`, `secrets.json`). Wer den Code prüft und dabei Fehler oder Schwachstellen findet, ist herzlich eingeladen, ein [Issue auf GitHub](https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages) zu eröffnen.
+
+<br>
+
+## Lizenz und Autor
+
+**Lizenz**:
+
+[MIT](LICENSE)
+
+**Autor:**
+
+Pepe HB9EVT, https://github.com/pepe-hb9evt
+mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))

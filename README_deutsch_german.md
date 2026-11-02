@@ -238,15 +238,25 @@ Aufbau der Reports und Exit-Codes: [DOCUMENTATION_deutsch_german.md → Ausgabe]
 
 <br>
 
-## Lizenz
+## Vibe-Coding-Deklaration
 
-[MIT](LICENSE)
+Diese Software wurde mittels **Vibe Coding** erstellt: Der gesamte Quellcode wurde von der KI Claude (Anthropic) geschrieben. Als Autor habe ich die Anforderungen und die beabsichtigte Funktionalität spezifiziert und in mehreren Etappen ergänzt; die KI hat den Code jeweils entsprechend geschrieben und angepasst. Auch die Projektdokumentation (README usw.) wurde KI-unterstützt verfasst.
+
+Das Ergebnis habe ich bezüglich Funktionalität eingehend geprüft. Die Tests beschränkten sich auf das von aussen beobachtbare Verhalten (**Black-Box-Tests**).
+
+Den Python-Code selbst habe ich weder gelesen noch bezüglich Qualität oder Sicherheit geprüft. Geprüft wurde lediglich, ob der Code gut und in englischer Sprache kommentiert ist, da dies eine der Vorgaben war.
+
+Die Nutzung erfolgt auf eigenes Risiko (siehe auch die [Lizenz](LICENSE)). Das gilt besonders, weil das Skript Zugangsdaten verarbeitet (`webpages.json`, `secrets.json`). Wer den Code prüft und dabei Fehler oder Schwachstellen findet, ist herzlich eingeladen, ein [Issue auf GitHub](https://github.com/pepe-hb9evt/Monitoring-your-favorite-webpages) zu eröffnen.
 
 <br>
 
-## Autoren
+## Lizenz und Autor
 
-- Pepe HB9EVT
-  https://github.com/pepe-hb9evt
-- Claude (Anthropic)
-  (A.I. im *Large Language Model* Modus)
+**Lizenz**:
+
+[MIT](LICENSE)
+
+**Autor:**
+
+Pepe HB9EVT, https://github.com/pepe-hb9evt
+mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))
