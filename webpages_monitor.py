@@ -70,14 +70,15 @@ DEFAULTS = {
     "intensive_check_interval_hours": 0,        # 0 = off; N = check changed/unreachable webpages again after N hours
     # Mail sent by this script (alternative to sending the reports by other means)
     "mail_mode": "none",                        # "none" = the script sends no mail, "script" = send by SMTP
-    "mail_condition": "always",                 # "always" = after every check, "on_change" = only on change/error
+    "mail_condition": "always",                 # "always" = after every check, "on_change" = only on change/error,
+                                                # "on_change_and_daily" = only on new content, else a daily mail
     "smtp": {"host": "smtp.gmail.com", "port": 587, "use_starttls": True, "use_ssl": False, "username": ""},
     "mail": {"sender": "", "recipients": [], "subject_prefix": "[Webpage Monitoring]"},
     # Dev mode: show a terminal window also for windowless scheduled runs (pythonw.exe)
     "dev_mode": {"enabled": False, "keep_open_after_run_seconds": 60},  # seconds also used for manual starts
 }
 ALLOWED_INTERVALS = (1, 2, 3, 4, 6, 8, 12, 24)  # divisors of 24, so the grid repeats every day
-CHOICES = {"mail_mode": ("none", "script"), "mail_condition": ("always", "on_change")}
+CHOICES = {"mail_mode": ("none", "script"), "mail_condition": ("always", "on_change", "on_change_and_daily")}
 # expected types of the keys inside the object settings
 NESTED_TYPES = {
     "smtp": {"host": str, "port": int, "use_starttls": bool, "use_ssl": bool, "username": str},
@@ -189,6 +190,7 @@ INTENSIVE_HOURS = SETTINGS["intensive_check_interval_hours"]
 CATCH_UP_TOLERANCE = timedelta(minutes=10)  # a delayed start of the previous check still counts as on time
 MAIL_MODE = SETTINGS["mail_mode"]
 MAIL_CONDITION = SETTINGS["mail_condition"]
+DAILY_MAIL_INTERVAL = timedelta(hours=24)  # "on_change_and_daily": daily mail this long after the last mail
 DEV_MODE = SETTINGS["dev_mode"]
 PROGRESS_URL_WIDTH = 60  # longer URLs are shortened in the terminal window
 PROGRESS_ERROR_WIDTH = 80  # longer error texts are shortened in the terminal window
@@ -561,16 +563,24 @@ def since_text(delta):
     return f"{hours} {'hour' if hours == 1 else 'hours'}"
 
 
-def mail_subject_text(now, previous, count):
-    """Short subject: result of this run, e.g. '0 changed, 0 errors since 1 hour'."""
-    since = f"since {since_text(now - previous)}" if previous else "(first run)"
-    return f"{count['changed']} changed, {count['error']} errors {since}"
+def mail_subject_text(now, previous, count, last_mail=None):
+    """Short subject: result of this run, e.g. '0 changed, 0 errors since 1 hour'.
+    Daily mail (last_mail = time of the previous mail): starts with 'Daily mail: ' and the time is
+    counted from the previous mail, e.g. 'Daily mail: 0 changed, 1 errors since 24 hours'."""
+    reference = last_mail or previous
+    since = f"since {since_text(now - reference)}" if reference else "(first run)"
+    text = f"{count['changed']} changed, {count['error']} errors {since}"
+    return f"Daily mail: {text}" if last_mail else text
 
 
-def mail_intro(now, previous, count, sites_text, changed_urls, error_urls, daily_stats, intensive=False):
-    """Lines at the top of the mail: summary, then this run (changed webpages, errors), then the daily report."""
+def mail_intro(now, previous, count, sites_text, changed_urls, error_urls, daily_stats, intensive=False,
+               last_mail=None):
+    """Lines at the top of the mail: summary, then this run (changed webpages, errors), then the daily report.
+    The daily mail (last_mail = time of the previous mail) starts with a line that marks it as such."""
     since = f"since last run {since_text(now - previous)} ago" if previous else "(first run)"
-    lines = [f"This run:      {count['changed']} changed, {count['error']} errors {since}",
+    lines = ([f"Daily mail: no new content since the last mail {since_text(now - last_mail)} ago.", ""]
+             if last_mail else [])
+    lines += [f"This run:      {count['changed']} changed, {count['error']} errors {since}",
              f"Daily report:  {daily_stats['changed']} changed, {daily_stats['no_comparison']} without comparison",
              "", "",
              f"=== {'Intensive run' if intensive else 'Run'} {now:%Y-%m-%d %H:%M} ({sites_text}) ===", ""]
@@ -901,15 +911,17 @@ def parse_state_time(value):
 
 
 def load_state():
-    """state.json: {"last_regular_check": time, "intensive": {shortname: time of its last check}}.
+    """state.json: {"last_regular_check": time, "intensive": {shortname: time of its last check},
+    "last_mail": time of the last mail sent after a check}.
     A missing or broken file gives an empty state (the report is then used for the last check)."""
-    state = {"last_regular_check": None, "intensive": {}}
+    state = {"last_regular_check": None, "intensive": {}, "last_mail": None}
     try:
         data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
     except Exception:
         return state
     if isinstance(data, dict):
         state["last_regular_check"] = parse_state_time(data.get("last_regular_check"))
+        state["last_mail"] = parse_state_time(data.get("last_mail"))
         intensive = data.get("intensive")
         if isinstance(intensive, dict):
             state["intensive"] = {k: t for k, v in intensive.items() if (t := parse_state_time(v))}
@@ -921,7 +933,8 @@ def save_state(state):
     data = {"_comment": "Written by webpages_monitor.py - do not edit",
             "last_regular_check": (state["last_regular_check"].strftime(STATE_TIME_FORMAT)
                                    if state["last_regular_check"] else None),
-            "intensive": {k: v.strftime(STATE_TIME_FORMAT) for k, v in sorted(state["intensive"].items())}}
+            "intensive": {k: v.strftime(STATE_TIME_FORMAT) for k, v in sorted(state["intensive"].items())},
+            "last_mail": state["last_mail"].strftime(STATE_TIME_FORMAT) if state["last_mail"] else None}
     tmp = STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, STATE_FILE)
@@ -935,12 +948,32 @@ def intensive_due(now, state):
     return [name for name, last in state["intensive"].items() if now - last >= limit]
 
 
+def daily_mail_enabled():
+    """True if mails are sent with "mail_condition": "on_change_and_daily"."""
+    return MAIL_MODE == "script" and MAIL_CONDITION == "on_change_and_daily"
+
+
+def next_daily_mail(state):
+    """Time the next daily mail is due (24 hours after the last mail), None if no mail was sent yet."""
+    return state["last_mail"] + DAILY_MAIL_INTERVAL if state["last_mail"] else None
+
+
+def daily_mail_due(now, state):
+    """True if the daily mail is due: no mail for 24 hours (a delayed start still counts as on time)."""
+    due = next_daily_mail(state)
+    return daily_mail_enabled() and due is not None and now >= due - CATCH_UP_TOLERANCE
+
+
 def check_due(now, state):
-    """Return (mode, reason): mode "regular", "intensive" or None (nothing due).
+    """Return (mode, reason): mode "regular", "intensive", "daily" or None (nothing due).
+    Daily: "on_change_and_daily" and no mail for 24 hours -> check all webpages (like a regular
+    check, also outside the grid) so the daily mail is up to date.
     Regular: on the grid hour (anchor + n * interval) or as catch-up when the last regular check is
     older than the interval (e.g. the computer was switched off at the grid hour).
     Intensive: webpages on the intensive list (changed or not reachable at the previous check)
     whose last check is INTENSIVE_HOURS old."""
+    if daily_mail_due(now, state):
+        return "daily", f"daily mail due (last mail {state['last_mail']:%Y-%m-%d %H:%M})"
     if (now.hour - CHECK_ANCHOR_HOUR) % CHECK_INTERVAL_HOURS == 0:
         return "regular", "scheduled check"
     last = state["last_regular_check"] or last_check_time()
@@ -955,6 +988,8 @@ def check_due(now, state):
     if state["intensive"]:
         upcoming = min(state["intensive"].values()) + timedelta(hours=INTENSIVE_HOURS)
         pending = f", next intensive check {upcoming:%Y-%m-%d %H:%M}"
+    if daily_mail_enabled() and next_daily_mail(state):
+        pending += f", next daily mail {next_daily_mail(state):%Y-%m-%d %H:%M}"
     return None, (f"no check due (last regular check {last:%Y-%m-%d %H:%M}, "
                   f"next {next_grid_time(now):%Y-%m-%d %H:%M}{pending})")
 
@@ -1022,16 +1057,34 @@ def send_mail(subject, body):
     return msg["To"]
 
 
-def mail_after_check(subject, body, has_news, intensive=False):
-    """Send the daily report after a check according to mail_mode/mail_condition.
-    After an intensive check a mail is sent only if a new change was found (has_news).
+def mail_decision(now, state, new_content, has_news, intensive):
+    """Decide whether a mail is sent after a check. Return (kind, reason):
+    kind "news" (normal mail), "daily" (daily mail) or None (no mail; reason for the run report).
+    new_content: at least one webpage has new content; has_news: change or error (for "on_change");
+    for a faulty webpage list or an aborted run both are True, so a mail is always sent."""
+    if intensive:  # after an intensive check a mail is sent only if new content was found
+        return ("news", "") if new_content else (None, "intensive check without a new change")
+    if MAIL_CONDITION == "always":
+        return "news", ""
+    if MAIL_CONDITION == "on_change":
+        return ("news", "") if has_news else (None, "no change and no error, mail_condition = on_change")
+    # "on_change_and_daily": new content -> mail; otherwise a daily mail 24 hours after the last mail
+    if new_content:
+        return "news", ""
+    if daily_mail_due(now, state):
+        return "daily", ""
+    due = next_daily_mail(state)
+    return None, f"no new content, next daily mail {due:%Y-%m-%d %H:%M}" if due else "no new content"
+
+
+def mail_after_check(now, state, subject, body, kind, reason):
+    """Send the mail after a check according to mail_decision(). A sent mail is stored as
+    state["last_mail"] (starts the 24-hour count for the daily mail).
     Return the lines for the run report (empty if no mail is configured)."""
     if MAIL_MODE != "script":
         return []
-    if intensive and not has_news:
-        return ["Mail: not sent (intensive check without a new change)"]
-    if MAIL_CONDITION == "on_change" and not has_news:
-        return ["Mail: not sent (no change and no error, mail_condition = on_change)"]
+    if kind is None:
+        return [f"Mail: not sent ({reason})"]
     progress("Sending mail ... ", end="")
     try:
         recipients = send_mail(subject, body)
@@ -1039,7 +1092,9 @@ def mail_after_check(subject, body, has_news, intensive=False):
         progress("failed")
         return [f"ERROR: Mail could not be sent: {type(e).__name__}: {e}"] + [f"ERROR: {m}" for m in SECRETS_PROBLEMS]
     progress("done")
-    return [f"Mail: daily report sent to {recipients}"] + [f"ERROR: {m}" for m in SECRETS_PROBLEMS]
+    state["last_mail"] = now
+    what = "daily mail" if kind == "daily" else "daily report"
+    return [f"Mail: {what} sent to {recipients}"] + [f"ERROR: {m}" for m in SECRETS_PROBLEMS]
 
 
 def send_test_mail(now):
@@ -1117,7 +1172,7 @@ def parse_args():
     parser.add_argument("--force", action="store_true", help="check now, even if no check is due")
     parser.add_argument("--test-mail", action="store_true", help="send a test mail and exit")
     parser.add_argument("--dev-window", action="store_true", help=argparse.SUPPRESS)  # set by dev mode
-    parser.add_argument("--run-mode", choices=("regular", "intensive"), help=argparse.SUPPRESS)  # set by dev mode
+    parser.add_argument("--run-mode", choices=("regular", "intensive", "daily"), help=argparse.SUPPRESS)  # set by dev mode
     return parser.parse_args()
 
 
@@ -1154,7 +1209,7 @@ def main():
 def run_check(now, state, mode="regular"):
     """One check: fetch and compare all webpages ("regular") or only the webpages in intensive mode
     ("intensive"), write the reports, update state.json, send the mail."""
-    intensive = mode == "intensive"
+    intensive = mode == "intensive"  # "daily" is a regular check of all webpages (daily mail due)
     try:
         PROJECT_DIR.mkdir(parents=True, exist_ok=True)
         SITES_DIR.mkdir(exist_ok=True)  # create "monitored-webpages" if it does not exist yet
@@ -1162,7 +1217,9 @@ def run_check(now, state, mode="regular"):
         print(f"ERROR: folder {SITES_DIR} not available: {e}", file=sys.stderr)
         return 2
     short, daily, code = [], None, 0
-    mail_subject, intro, news = "Run failed", [], True
+    mail_subject, intro, news, new_content, mail_parts = "Run failed", [], True, True, None
+    if daily_mail_enabled() and state["last_mail"] is None:
+        state["last_mail"] = now  # no mail yet: the 24-hour count for the daily mail starts now
     previous = last_check_time()  # before this run is added to the report
     try:
         sites, fatal, entry_problems = load_sites()
@@ -1244,12 +1301,10 @@ def run_check(now, state, mode="regular"):
             daily_lines, daily_stats = build_daily_report(now, all_sites, failed)  # always all webpages
             daily = stop_note + daily_lines
             sites_text = f"{len(sites)} of {len(all_sites)} webpages" if intensive else f"{len(sites)} webpages"
-            # subject: result of this run only (short); the daily report is summarized in the mail text
-            mail_subject = mail_subject_text(now, previous, count)
             error_urls = [sites[name]["url"] for name in failed]
-            intro = mail_intro(now, previous, count, sites_text, [c[0] for c in changed], error_urls,
-                               daily_stats, intensive)
             news = count["changed"] > 0 if intensive else code != 0
+            new_content = count["changed"] > 0
+            mail_parts = (count, sites_text, [c[0] for c in changed], error_urls, daily_stats)
     except Exception as e:
         short += ["ERROR: Unexpected error during the run: " + f"{type(e).__name__}: {e}", "",
                   f"Run finished ({finished_time()}) in a controlled way after an unexpected error"]
@@ -1265,8 +1320,17 @@ def run_check(now, state, mode="regular"):
     if daily_text is None:  # the mail carries the same text as the daily report file
         daily_text = "\n".join([f"=== Daily report {now:%Y-%m-%d %H:%M} ===", ""]
                                 + (daily if daily is not None else short)).rstrip() + "\n"
+    mail_kind, reason = mail_decision(now, state, new_content, news, intensive)
+    if mail_parts:  # normal run: subject and intro of this check (marked if it is the daily mail)
+        count, sites_text, changed_urls, error_urls, daily_stats = mail_parts
+        # subject: result of this run only (short); the daily report is summarized in the mail text
+        # daily mail: time counted from the previous mail (state["last_mail"] is updated only after sending)
+        last_mail = state["last_mail"] if mail_kind == "daily" else None
+        mail_subject = mail_subject_text(now, previous, count, last_mail)
+        intro = mail_intro(now, previous, count, sites_text, changed_urls, error_urls,
+                           daily_stats, intensive, last_mail)
     mail_body = "\n".join(intro) + daily_text if intro else daily_text
-    mail_lines = mail_after_check(mail_subject, mail_body, news, intensive)
+    mail_lines = mail_after_check(now, state, mail_subject, mail_body, mail_kind, reason)
     if mail_lines:
         short += [""] + mail_lines
     try:

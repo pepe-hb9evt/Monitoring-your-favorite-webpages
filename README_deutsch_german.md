@@ -118,7 +118,7 @@ Ab Werk versendet das Skript keine Mails. So wird der Mail-Versand eingerichtet:
    "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
-   `"mail_condition": "always"` versendet nach jeder Prüfung eine Mail, `"on_change"` nur bei einer Änderung oder einem Fehler.
+   `"mail_condition": "always"` versendet nach jeder Prüfung eine Mail, `"on_change"` nur bei einer Änderung oder einem Fehler, `"on_change_and_daily"` nur bei neuen Inhalten und sonst eine Tagesmail 24 Stunden nach der letzten Mail (Lebenszeichen).
 2. `secrets.example.json` nach `secrets.json` kopieren und das SMTP-Passwort eintragen. Bei Gmail ist das ein *App-Passwort* (Google-Konto → Sicherheit → Bestätigung in zwei Schritten → App-Passwörter), nicht das normale Kontopasswort.
 3. Testen: `python webpages_monitor.py --test-mail` oder im Menü `Menu for webpages-monitor-py.bat` den Punkt *Send test mail* wählen.
 

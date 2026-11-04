@@ -36,7 +36,7 @@
   "_mail": "--- Mail sent by the script; SMTP password in secrets.json (template: secrets.example.json) ---",
   "_mail_mode": "none = the script sends no mail, script = send the daily report by SMTP after each check",
   "mail_mode": "none",
-  "_mail_condition": "always = after every check, on_change = only if a change or an error was detected",
+  "_mail_condition": "always = after every check, on_change = only if a change or an error was detected, on_change_and_daily = only on new content, otherwise a daily mail 24 hours after the last mail (unreachable webpages do not trigger a mail)",
   "mail_condition": "always",
   "smtp": {
     "host": "smtp.gmail.com",

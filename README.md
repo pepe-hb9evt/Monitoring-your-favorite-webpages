@@ -118,7 +118,7 @@ By default, the script sends no e-mails. This is how sending is set up:
    "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
-   `"mail_condition": "always"` sends an e-mail after every check, `"on_change"` only on a change or an error.
+   `"mail_condition": "always"` sends an e-mail after every check, `"on_change"` only on a change or an error, `"on_change_and_daily"` only on new content and otherwise a daily mail 24 hours after the last mail (sign of life).
 2. Copy `secrets.example.json` to `secrets.json` and enter the SMTP password. For Gmail, this is an *app password* (Google account → Security → 2-step verification → App passwords), not the normal account password.
 3. Test: `python webpages_monitor.py --test-mail`, or choose *Send test mail* in the menu `Menu for webpages-monitor-py.bat`.
 
