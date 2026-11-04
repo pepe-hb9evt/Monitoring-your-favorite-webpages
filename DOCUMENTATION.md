@@ -259,6 +259,61 @@ Page areas that change all the time (e.g. a "related posts" box or a footer with
 
 <br>
 
+#### Writing `elements` selectors: from HTML to `webpages.json`
+
+**1. Find the HTML of the area.** Open the webpage in the browser, right-click the area to remove → **Inspect**. The developer tools show the opening tag of the element, e.g.:
+
+```html
+<section id="archives-2" class="widget widget_archive">
+  <h2>Archives</h2>
+  …
+</section>
+```
+
+The selector is built from three parts of this opening tag: the **tag name** (`section`), the **`id`** (`archives-2`) and the **`class`** values (`widget`, `widget_archive`).
+
+**2. Translate it into a selector.**
+
+| In the HTML | Entry in `webpages.json` | Meaning |
+|---|---|---|
+| `<div class="source-footer">` | `"div.source-footer"` | tag + class: `.` before the class |
+| `<div class="prop-list grid">` | `"div.prop-list"` or `"div.prop-list.grid"` | `class` with spaces = several classes; one is enough, several are joined with `.` without spaces |
+| `<section id="archives-2">` | `"section#archives-2"` | tag + id: `#` before the id |
+| `<section id="archives-2">` | `"#archives-2"` | id only (any tag) |
+| `<aside class="sidebar">` | `".sidebar"` | class only (any tag) |
+| `<footer>` | `"footer"` | tag only: **every** `<footer>` of the webpage |
+| `<div class="widget">` inside `<footer>` | `"footer .widget"` | space = "somewhere inside": only `.widget` elements within a `<footer>` |
+| `<div data-box="related">` | `"div[data-box='related']"` | other attribute in square brackets |
+
+**3. Write it into `webpages.json`.** All selectors of a webpage go as strings, separated by commas, into the list `elements`:
+
+```json
+"echo-training": {
+  "url": "https://example-echo.com/category/training/",
+  "ignore": {
+    "elements": [
+      "div.source-footer",
+      "div.prop-list",
+      "section#wp_statistics_widget-2",
+      "section#archives-2",
+      "section#categories-2"
+    ]
+  }
+}
+```
+
+**Rules and pitfalls**
+
+- No space between tag and `.`/`#`: `section#archives-2` means "the `<section>` with this id", `section #archives-2` means "an element with this id **inside** a `<section>`".
+- Case matters for `id` and `class`: `#Archives-2` does not match `id="archives-2"`.
+- Use only one class value per `.`: from `class="widget widget_archive"` write `.widget_archive`, never `.widget widget_archive` (that would be "inside" again).
+- Quotes in attribute selectors: use single quotes inside the JSON string (`"div[data-box='related']"`) or escape them (`"div[data-box=\"related\"]"`).
+- Prefer a specific selector: `div.widget` often matches many areas; `section#archives-2` hits exactly one.
+- WordPress widgets often have numbered ids (`archives-2`, `categories-2`); these stay the same as long as the widget is not removed and added again.
+- Check the result: after the next run, the removed area must no longer appear in the newest capture file in `monitored-webpages\<shortname>`; a mistyped selector is not an error, it simply matches nothing.
+
+<br>
+
 ## Settings (`settings.json`)
 
 Optional. Lives next to the script; see [`settings.example.json`](settings.example.json). All keys are optional.
@@ -282,9 +337,9 @@ Optional. Lives next to the script; see [`settings.example.json`](settings.examp
 | `console_progress` | `true` | Show the progress per webpage in the terminal window |
 | `check_interval_hours` | `1` | Check every N hours: `1`, `2`, `3`, `4`, `6`, `8`, `12` or `24` (see [Schedule](#schedule-hourly-start-and-check-interval)) |
 | `check_anchor_hour` | `0` | Hour of day (0–23) the check grid starts from |
-| `intensive_check_interval_hours` | `0` | `0` = off; N = check a changed webpage again after N hours (see [Intensive check](#intensive-check-of-changed-webpages)) |
+| `intensive_check_interval_hours` | `0` | `0` = off; N = check changed or unreachable webpages again after N hours (see [Intensive check](#intensive-check-of-changed-and-unreachable-webpages)) |
 | `mail_mode` | `none` | `none` = the script sends no mail, `script` = the script sends the daily report by SMTP (see [E-mail](#e-mail-sent-by-the-script)) |
-| `mail_condition` | `always` | `always` = mail after every check, `on_change` = only if a change or an error was detected |
+| `mail_condition` | `always` | `always` = mail after every check, `on_change` = only if a change or an error was detected, `on_change_and_daily` = only on new content, otherwise a daily mail 24 hours after the last mail (see [E-mail](#e-mail-sent-by-the-script)) |
 | `smtp` | Gmail, port 587, STARTTLS | SMTP server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
 | `mail` | – | `sender`, `recipients` (list), `subject_prefix` (default `[Webpage Monitoring]`) |
 | `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (default `60`, also used for manual starts, `0` = no pause), see [Dev mode](#dev-mode-visible-terminal-window) |
@@ -305,21 +360,33 @@ The script is meant to be **started every hour**. It decides itself whether a ch
 
 <br>
 
-### Intensive check of changed webpages
+### Intensive check of changed and unreachable webpages
 
-With `"intensive_check_interval_hours": N` (N > 0, smaller than `check_interval_hours`; `0` = off, default), a webpage with a detected change is checked again **N hours later** – only this webpage, not the whole list:
+With `"intensive_check_interval_hours": N` (N > 0, smaller than `check_interval_hours`; `0` = off, default), webpages that **changed** or were **not reachable** are checked again **N hours later** – only these webpages, not the whole list:
 
-| Time | Example: regular every 6 hours from 04:00, intensive every 2 hours |
-|---|---|
-| 04:00 | Regular check of all webpages; webpage A has changed → A is in intensive mode |
-| 06:00 | Intensive check of A only: changed again → stays intensive; unchanged or error → leaves intensive mode |
-| 08:00 | Only if A changed again at 06:00: A again |
-| 10:00 | Regular check of all webpages |
+- **Regular check:** All changed and all unreachable webpages are put on the intensive list.
+- **Intensive check:** Only the webpages on the intensive list are fetched.
+  - If at least one webpage has **new content**, a mail is sent and the list is rebuilt: all webpages that changed or were not reachable in this check. The next intensive check follows N hours later.
+  - If no webpage has new content, **no mail** is sent and the list is cleared: no further intensive check, even if webpages are still not reachable.
+- The next regular check always replaces the list with its own result.
+- First runs (newly added webpages) are not put on the list.
+
+| Time | Example: regular every 4 hours from 03:00, intensive after 1 hour | Mail | Intensive list |
+|---|---|---|---|
+| 03:00 | Regular check of all webpages: A changed, B not reachable | yes | A, B |
+| 04:00 | Intensive check of A and B: A changed again, B not reachable | yes | A, B |
+| 05:00 | Intensive check of A and B: A unchanged, B not reachable | no | empty |
+| 06:00 | no check | – | empty |
+| 07:00 | Regular check of all webpages | according to `mail_condition` | new |
+
+Variant: if B is reachable again at 04:00 and has new content while A is unchanged, a mail is sent and only B is checked at 05:00.
+
+Note: if a webpage changes on every fetch (e.g. a counter or date), a mail is sent every hour until the next regular check. Remedy: an `ignore` entry for this webpage.
 
 - If an intensive check falls on a regular hour, the regular check covers it.
-- After an intensive check, a mail is sent **only if a new change was found** (independent of `mail_condition`). The subject starts with `Intensive check:`, the mail text names the number of fetched webpages, e.g. `1 of 32 webpages`.
-- The run report notes `Intensive check: 1 webpage (webpages changed recently)`; webpages not fetched do not appear there. The daily report is rewritten for all webpages after every check.
-- The state (last regular check, webpages in intensive mode) is kept in `state.json` in the project folder (not in Git; written by the script, do not edit). If the file is missing, the time of the last check is taken from the report.
+- The run section of the mail is titled `=== Intensive run … ===` and names the number of fetched webpages, e.g. `2 of 32 webpages`.
+- The run report notes `Intensive check: 2 webpages (changed or not reachable at the previous check)`; webpages not fetched do not appear there. The daily report is rewritten for all webpages after every check.
+- The state (last regular check, webpages in intensive mode, time of the last mail) is kept in `state.json` in the project folder (not in Git; written by the script, do not edit). If the file is missing, the time of the last check is taken from the report.
 - `--force` always checks all webpages.
 
 <br>
@@ -331,6 +398,9 @@ With `"intensive_check_interval_hours": N` (N > 0, smaller than `check_interval_
 | *(none)* | Check if due according to the schedule |
 | `--force` | Check now, even if no check is due |
 | `--test-mail` | Send a test mail (content: current daily report) and exit; works also with `"mail_mode": "none"` |
+
+There is also a batch file that conveniently offers these options in a selection menu:<br>
+File `Menu for webpages-monitor-py.bat`
 
 <br>
 
@@ -352,25 +422,55 @@ As an alternative to sending the reports by other means (e.g. [with Claude](#opt
 
 Behaviour:
 
-- The mail is sent after each check. It starts with the result of this check (time of the previous check, changed webpages and errors since then), followed by the content of `REPORT-daily-summary.txt` (comparison with the capture of about one day ago):
+- The mail is sent after a check (when exactly is set by `mail_condition`, see below). It starts with a two-line summary (this run and daily report), then the details of this run (webpages with new information, webpages with errors), followed by the content of `REPORT-daily-summary.txt` (comparison with the capture of about one day ago):
 
-  ```
-  === Check 2026-10-22 13:00 (26 webpages) ===
-
-  Previous check: 2 hours ago (2026-10-22 11:00)
-  Since the previous check: 0 changed, 0 errors
+```
+This run:      1 changed, 0 errors since last run 1 hour ago
+Daily report:  2 changed, 2 without comparison
 
 
-  Below: daily report
-  Compared with the capture from 25 hours ago: 1 changed, 0 without comparison
+=== Run 2026-10-22 13:00 (26 webpages) ===
 
-  === Daily report 2026-10-22 13:00 ===
-  ...
-  ```
+New information on:
+-  https://www.example-alpha.com/news/
 
-- The subject names both results, e.g. `[Webpage Monitoring] This check: 0 changed, 0 errors | 25 hours: 1 changed (26 webpages, run 2026-10-22 13:00)`.
-- `"mail_condition": "on_change"` sends a mail only if a change or an error was detected (exit code 1 or 2). First runs alone do not count as a change.
-- The result is noted at the end of the run in `REPORT-of-every-run-last-3-days.txt` (`Mail: daily report sent to …` or `ERROR: Mail could not be sent: …`). A failed mail never stops the run.
+Errors:
+(none)
+
+
+
+=== Daily report 2026-10-22 13:00 ===
+...
+```
+
+- The subject is short and names only the result of this run, e.g. `[Webpage Monitoring] 0 changed, 0 errors since 1 hour` (below one hour in minutes, otherwise in whole hours).
+- `mail_condition` sets when a mail is sent:
+
+  | Value | Mail |
+  |---|---|
+  | `always` | after every check |
+  | `on_change` | only if a change or an error was detected (exit code 1 or 2); first runs alone do not count as a change |
+  | `on_change_and_daily` | only on **new content**; otherwise a **daily mail** 24 hours after the last mail |
+
+  After an intensive check, a mail is sent only on new content, for all three values.
+- With `on_change_and_daily`:
+  - Unreachable webpages do not trigger a mail; they only appear in the mails that are sent anyway.
+  - The daily mail is a sign of life: if no mail was sent for 24 hours, the script checks all webpages at the next hourly start (also outside the check interval) and sends the daily mail. If this check finds new content, it becomes a normal mail.
+  - Every mail sent (new content, intensive check, daily mail, script error) restarts the 24 hours. The test mail (`--test-mail`) does not count.
+  - A faulty webpage list or an aborted run still triggers a mail at once.
+  - The daily mail is marked: the subject starts with `Daily mail:`, and the time is counted from the last mail, e.g. `[Webpage Monitoring] Daily mail: 0 changed, 1 errors since 24 hours`. The first line reads `Daily mail: no new content since the last mail 24 hours ago.` (correspondingly more hours if the computer was switched off).
+  - If the computer is switched off when the daily mail is due, it follows at the next hourly start. When switching to this value, the 24 hours start with the first check.
+
+  | Time | Example: regular every 4 hours from 03:00, intensive after 1 hour | Mail | Next daily mail |
+  |---|---|---|---|
+  | Mon 11:00 | Regular check: A changed | yes | Tue 11:00 |
+  | Mon 12:00 | Intensive check: A changed again | yes | Tue 12:00 |
+  | Mon 13:00 … Tue 11:00 | No new content, B not reachable | no | Tue 12:00 |
+  | Tue 12:00 | 24 hours without a mail: check all webpages, no new content | yes, daily mail | Wed 12:00 |
+  | Wed 12:00 | as Tue 12:00 | yes, daily mail | Thu 12:00 |
+  | Wed 19:00 | Regular check: C changed | yes | Thu 19:00 |
+
+- The result is noted at the end of the run in `REPORT-of-every-run-last-3-days.txt` (`Mail: daily report sent to …`, `Mail: daily mail sent to …`, `Mail: not sent (…)` with the reason, or `ERROR: Mail could not be sent: …`). A failed mail never stops the run.
 - With `use_ssl: true` an SMTPS connection is used (usually port 465), otherwise a normal connection with STARTTLS (port 587).
 - Only the Python standard library is used; no additional package is needed.
 
@@ -467,7 +567,7 @@ Everything lives in the project folder (the folder `monitored-webpages` is creat
 - `secrets.json`
   SMTP password for the e-mail (not in Git).
 - `state.json`
-  State of the schedule: last regular check, webpages in intensive mode (written by the script, not in Git).
+  State of the schedule: last regular check, webpages in intensive mode, time of the last mail (written by the script, not in Git).
 - `REPORT-of-every-run-last-3-days.txt`
   Log of every run of the last three days.
 - `REPORT-daily-summary.txt`

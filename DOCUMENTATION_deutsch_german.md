@@ -259,6 +259,61 @@ Seitenbereiche, die sich ständig ändern (z. B. ein Kasten „Ähnliche Beiträ
 
 <br>
 
+#### Schreibweise der `elements`-Selektoren: vom HTML zur `webpages.json`
+
+**1. HTML des Bereichs finden.** Die Webseite im Browser öffnen, mit der rechten Maustaste auf den zu entfernenden Bereich klicken → **Untersuchen**. Die Entwicklertools zeigen das öffnende Tag des Elements, z. B.:
+
+```html
+<section id="archives-2" class="widget widget_archive">
+  <h2>Archiv</h2>
+  …
+</section>
+```
+
+Der Selektor wird aus drei Teilen dieses öffnenden Tags gebildet: dem **Tag-Namen** (`section`), der **`id`** (`archives-2`) und den **`class`**-Werten (`widget`, `widget_archive`).
+
+**2. In einen Selektor übersetzen.**
+
+| Im HTML | Eintrag in `webpages.json` | Bedeutung |
+|---|---|---|
+| `<div class="source-footer">` | `"div.source-footer"` | Tag + Klasse: `.` vor die Klasse |
+| `<div class="prop-list grid">` | `"div.prop-list"` oder `"div.prop-list.grid"` | `class` mit Leerzeichen = mehrere Klassen; eine genügt, mehrere werden mit `.` ohne Leerzeichen verbunden |
+| `<section id="archives-2">` | `"section#archives-2"` | Tag + ID: `#` vor die ID |
+| `<section id="archives-2">` | `"#archives-2"` | nur ID (beliebiges Tag) |
+| `<aside class="sidebar">` | `".sidebar"` | nur Klasse (beliebiges Tag) |
+| `<footer>` | `"footer"` | nur Tag: **jedes** `<footer>` der Webseite |
+| `<div class="widget">` innerhalb von `<footer>` | `"footer .widget"` | Leerzeichen = „irgendwo darin“: nur `.widget`-Elemente innerhalb eines `<footer>` |
+| `<div data-box="related">` | `"div[data-box='related']"` | anderes Attribut in eckigen Klammern |
+
+**3. In `webpages.json` eintragen.** Alle Selektoren einer Webseite kommen als Strings, durch Kommas getrennt, in die Liste `elements`:
+
+```json
+"echo-ausbildung": {
+  "url": "https://example-echo.com/category/ausbildung/",
+  "ignore": {
+    "elements": [
+      "div.source-footer",
+      "div.prop-list",
+      "section#wp_statistics_widget-2",
+      "section#archives-2",
+      "section#categories-2"
+    ]
+  }
+}
+```
+
+**Regeln und Stolpersteine**
+
+- Kein Leerzeichen zwischen Tag und `.`/`#`: `section#archives-2` heisst „das `<section>` mit dieser ID“, `section #archives-2` heisst „ein Element mit dieser ID **innerhalb** eines `<section>`“.
+- Gross-/Kleinschreibung zählt bei `id` und `class`: `#Archives-2` trifft `id="archives-2"` nicht.
+- Pro `.` nur ein Klassenwert: aus `class="widget widget_archive"` wird `.widget_archive`, nie `.widget widget_archive` (das wäre wieder „innerhalb“).
+- Anführungszeichen in Attribut-Selektoren: im JSON-String einfache Anführungszeichen verwenden (`"div[data-box='related']"`) oder sie maskieren (`"div[data-box=\"related\"]"`).
+- Möglichst genaue Selektoren wählen: `div.widget` trifft oft viele Bereiche, `section#archives-2` genau einen.
+- WordPress-Widgets haben oft nummerierte IDs (`archives-2`, `categories-2`); diese bleiben gleich, solange das Widget nicht entfernt und neu hinzugefügt wird.
+- Ergebnis prüfen: Nach dem nächsten Lauf darf der entfernte Bereich in der neuesten Erfassungsdatei in `monitored-webpages\<Kurzname>` nicht mehr vorkommen. Ein Tippfehler im Selektor ist kein Fehler, er trifft einfach nichts.
+
+<br>
+
 ## Einstellungen (`settings.json`)
 
 Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.example.json). Alle Schlüssel sind optional.
@@ -282,9 +337,9 @@ Optional. Liegt neben dem Skript; siehe [`settings.example.json`](settings.examp
 | `console_progress` | `true` | Fortschritt pro Webseite im Terminal-Fenster anzeigen |
 | `check_interval_hours` | `1` | Prüfung alle N Stunden: `1`, `2`, `3`, `4`, `6`, `8`, `12` oder `24` (siehe [Zeitplan](#zeitplan-stündlicher-start-und-prüfintervall)) |
 | `check_anchor_hour` | `0` | Stunde (0–23), ab der das Prüfraster beginnt |
-| `intensive_check_interval_hours` | `0` | `0` = aus; N = geänderte Webseite nach N Stunden erneut prüfen (siehe [Intensive Prüfung](#intensive-prüfung-geänderter-webseiten)) |
+| `intensive_check_interval_hours` | `0` | `0` = aus; N = geänderte oder nicht erreichbare Webseiten nach N Stunden erneut prüfen (siehe [Intensive Prüfung](#intensive-prüfung-geänderter-und-gestörter-webseiten)) |
 | `mail_mode` | `none` | `none` = das Skript versendet keine Mail, `script` = das Skript versendet den Daily Report per SMTP (siehe [Mail](#mail-versand-durch-das-skript)) |
-| `mail_condition` | `always` | `always` = Mail nach jeder Prüfung, `on_change` = nur wenn eine Änderung oder ein Fehler festgestellt wurde |
+| `mail_condition` | `always` | `always` = Mail nach jeder Prüfung, `on_change` = nur wenn eine Änderung oder ein Fehler festgestellt wurde, `on_change_and_daily` = nur bei neuen Inhalten, sonst eine Tagesmail 24 Stunden nach der letzten Mail (siehe [Mail](#mail-versand-durch-das-skript)) |
 | `smtp` | Gmail, Port 587, STARTTLS | SMTP-Server: `host`, `port`, `use_starttls`, `use_ssl`, `username` |
 | `mail` | – | `sender`, `recipients` (Liste), `subject_prefix` (Standard `[Webpage Monitoring]`) |
 | `dev_mode` | `enabled: false` | `enabled`, `keep_open_after_run_seconds` (Standard `60`, gilt auch für manuelle Starts, `0` = keine Pause), siehe [Dev-Modus](#dev-modus-sichtbares-terminal-fenster) |
@@ -305,21 +360,33 @@ Das Skript wird **jede Stunde gestartet**. Es entscheidet selbst, ob eine Prüfu
 
 <br>
 
-### Intensive Prüfung geänderter Webseiten
+### Intensive Prüfung geänderter und gestörter Webseiten
 
-Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_hours`; `0` = aus, Standard) wird eine Webseite mit festgestellter Änderung **N Stunden später** erneut geprüft – nur diese Webseite, nicht die ganze Liste:
+Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_hours`; `0` = aus, Standard) werden Webseiten, die **geändert** oder **nicht erreichbar** waren, **N Stunden später** erneut geprüft – nur diese Webseiten, nicht die ganze Liste:
 
-| Zeit | Beispiel: regulär alle 6 Stunden ab 04:00, intensiv alle 2 Stunden |
-|---|---|
-| 04:00 | Reguläre Prüfung aller Webseiten; Webseite A hat sich geändert → A ist im Intensiv-Modus |
-| 06:00 | Intensive Prüfung nur von A: erneut geändert → bleibt intensiv; unverändert oder Fehler → verlässt den Intensiv-Modus |
-| 08:00 | Nur wenn A um 06:00 erneut geändert war: wieder A |
-| 10:00 | Reguläre Prüfung aller Webseiten |
+- **Reguläre Prüfung:** Alle geänderten und alle nicht erreichbaren Webseiten kommen auf die Intensiv-Liste.
+- **Intensive Prüfung:** Abgerufen werden nur die Webseiten der Intensiv-Liste.
+  - Hat mindestens eine Webseite **neue Inhalte**, wird eine Mail versendet und die Liste neu gebildet: alle Webseiten, die in dieser Prüfung geändert oder nicht erreichbar waren. N Stunden später folgt die nächste intensive Prüfung.
+  - Hat keine Webseite neue Inhalte, wird **keine Mail** versendet und die Liste geleert: keine weitere intensive Prüfung, auch wenn Webseiten noch immer nicht erreichbar sind.
+- Die nächste reguläre Prüfung ersetzt die Liste immer durch ihr eigenes Ergebnis.
+- Erstläufe (neu eingetragene Webseiten) kommen nicht auf die Liste.
+
+| Zeit | Beispiel: regulär alle 4 Stunden ab 03:00, intensiv nach 1 Stunde | Mail | Intensiv-Liste |
+|---|---|---|---|
+| 03:00 | Reguläre Prüfung aller Webseiten: A geändert, B nicht erreichbar | ja | A, B |
+| 04:00 | Intensive Prüfung von A und B: A erneut geändert, B nicht erreichbar | ja | A, B |
+| 05:00 | Intensive Prüfung von A und B: A unverändert, B nicht erreichbar | nein | leer |
+| 06:00 | keine Prüfung | – | leer |
+| 07:00 | Reguläre Prüfung aller Webseiten | gemäss `mail_condition` | neu |
+
+Variante: Ist B um 04:00 wieder erreichbar und hat neue Inhalte, A hingegen ist unverändert, wird eine Mail versendet und um 05:00 nur B geprüft.
+
+Hinweis: Ändert sich eine Webseite bei jedem Abruf (z. B. Zähler, Datum), gibt es bis zur nächsten regulären Prüfung jede Stunde eine Mail. Abhilfe: ein `ignore`-Eintrag für diese Webseite.
 
 - Fällt eine intensive Prüfung auf eine reguläre Stunde, übernimmt die reguläre Prüfung.
-- Nach einer intensiven Prüfung wird **nur bei einer erneuten Änderung** eine Mail versendet (unabhängig von `mail_condition`). Der Betreff beginnt mit `Intensive check:`, der Mail-Text nennt die Anzahl abgerufener Webseiten, z. B. `1 of 32 webpages`.
-- Im Run-Report steht `Intensive check: 1 webpage (webpages changed recently)`; nicht abgerufene Webseiten erscheinen dort nicht. Der Daily Report wird nach jeder Prüfung für alle Webseiten neu geschrieben.
-- Der Zustand (letzte reguläre Prüfung, Webseiten im Intensiv-Modus) steht in `state.json` im Projektordner (nicht in Git; vom Skript geschrieben, nicht bearbeiten). Fehlt die Datei, wird der Zeitpunkt der letzten Prüfung aus dem Report gelesen.
+- Der Lauf-Abschnitt der Mail heisst `=== Intensive run … ===` und nennt die Anzahl abgerufener Webseiten, z. B. `2 of 32 webpages`.
+- Im Run-Report steht `Intensive check: 2 webpages (changed or not reachable at the previous check)`; nicht abgerufene Webseiten erscheinen dort nicht. Der Daily Report wird nach jeder Prüfung für alle Webseiten neu geschrieben.
+- Der Zustand (letzte reguläre Prüfung, Webseiten im Intensiv-Modus, Zeitpunkt der letzten Mail) steht in `state.json` im Projektordner (nicht in Git; vom Skript geschrieben, nicht bearbeiten). Fehlt die Datei, wird der Zeitpunkt der letzten Prüfung aus dem Report gelesen.
 - `--force` prüft immer alle Webseiten.
 
 <br>
@@ -331,6 +398,9 @@ Mit `"intensive_check_interval_hours": N` (N > 0, kleiner als `check_interval_ho
 | *(keine)* | Prüfen, falls laut Zeitplan fällig |
 | `--force` | Sofort prüfen, auch wenn keine Prüfung fällig ist |
 | `--test-mail` | Testmail senden (Inhalt: aktueller Daily Report) und beenden; funktioniert auch mit `"mail_mode": "none"` |
+
+Hierzu gibt es auch eine Batch-Datei, welche diese Optionen bequem in einem Auswahlmenu anbietet:<br>
+Datei `Menu for webpages-monitor-py.bat`
 
 <br>
 
@@ -352,25 +422,55 @@ Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#opt
 
 Verhalten:
 
-- Die Mail wird nach jeder Prüfung versendet. Sie beginnt mit dem Ergebnis dieser Prüfung (Zeitpunkt der vorherigen Prüfung, seither geänderte Webseiten und Fehler), danach folgt der Inhalt von `REPORT-daily-summary.txt` (Vergleich mit der Erfassung von vor rund einem Tag):
+- Die Mail wird nach einer Prüfung versendet (wann genau, legt `mail_condition` fest, siehe unten). Sie beginnt mit einer zweizeiligen Zusammenfassung (dieser Lauf und Daily Report), dann folgen die Details dieses Laufs (Webseiten mit neuen Infos, Webseiten mit Fehlern), danach der Inhalt von `REPORT-daily-summary.txt` (Vergleich mit der Erfassung von vor rund einem Tag):
 
-  ```
-  === Check 2026-10-22 13:00 (26 webpages) ===
-  
-  Previous check: 2 hours ago (2026-10-22 11:00)
-  Since the previous check: 0 changed, 0 errors
+```
+This run:      1 changed, 0 errors since last run 1 hour ago
+Daily report:  2 changed, 2 without comparison
 
 
-  Below: daily report
-  Compared with the capture from 25 hours ago: 1 changed, 0 without comparison
+=== Run 2026-10-22 13:00 (26 webpages) ===
 
-  === Daily report 2026-10-22 13:00 ===
-  ...
-  ```
+New information on:
+-  https://www.example-alpha.com/news/
 
-- Der Betreff nennt beide Ergebnisse, z. B. `[Webpage Monitoring] This check: 0 changed, 0 errors | 25 hours: 1 changed (26 webpages, run 2026-10-22 13:00)`.
-- `"mail_condition": "on_change"` versendet nur dann eine Mail, wenn eine Änderung oder ein Fehler festgestellt wurde (Exit-Code 1 oder 2). Erstläufe allein zählen nicht als Änderung.
-- Das Ergebnis wird am Ende des Laufs in `REPORT-of-every-run-last-3-days.txt` vermerkt (`Mail: daily report sent to …` oder `ERROR: Mail could not be sent: …`). Ein fehlgeschlagener Versand bricht den Lauf nie ab.
+Errors:
+(none)
+
+
+
+=== Daily report 2026-10-22 13:00 ===
+...
+```
+
+- Der Betreff ist kurz und nennt nur das Ergebnis dieses Laufs, z. B. `[Webpage Monitoring] 0 changed, 0 errors since 1 hour` (unter einer Stunde in Minuten, sonst in ganzen Stunden).
+- `mail_condition` legt fest, wann eine Mail versendet wird:
+
+  | Wert | Mail |
+  |---|---|
+  | `always` | nach jeder Prüfung |
+  | `on_change` | nur wenn eine Änderung oder ein Fehler festgestellt wurde (Exit-Code 1 oder 2); Erstläufe allein zählen nicht als Änderung |
+  | `on_change_and_daily` | nur bei **neuen Inhalten**; sonst eine **Tagesmail** 24 Stunden nach der letzten Mail |
+
+  Nach einer intensiven Prüfung wird bei allen drei Werten nur bei neuen Inhalten eine Mail versendet.
+- Bei `on_change_and_daily` gilt:
+  - Nicht erreichbare Webseiten lösen keine Mail aus; sie erscheinen nur in den Mails, die ohnehin versendet werden.
+  - Die Tagesmail ist ein Lebenszeichen: Wurde 24 Stunden lang keine Mail versendet, prüft das Skript beim nächsten stündlichen Start alle Webseiten (auch ausserhalb des Prüfrhythmus) und versendet die Tagesmail. Findet diese Prüfung neue Inhalte, wird daraus eine normale Mail.
+  - Jede versendete Mail (neue Inhalte, intensive Prüfung, Tagesmail, Fehler des Skripts) startet die 24 Stunden neu. Die Testmail (`--test-mail`) zählt nicht.
+  - Eine fehlerhafte Webseiten-Liste oder ein abgebrochener Lauf löst weiterhin sofort eine Mail aus.
+  - Die Tagesmail ist gekennzeichnet: Der Betreff beginnt mit `Daily mail:`, und die Zeitangabe zählt ab der letzten Mail, z. B. `[Webpage Monitoring] Daily mail: 0 changed, 1 errors since 24 hours`. Die erste Zeile lautet `Daily mail: no new content since the last mail 24 hours ago.` (war der Computer ausgeschaltet, entsprechend mehr Stunden).
+  - Ist der Computer zur fälligen Zeit ausgeschaltet, folgt die Tagesmail beim nächsten stündlichen Start. Bei der Umstellung auf diesen Wert beginnen die 24 Stunden mit der ersten Prüfung.
+
+  | Zeit | Beispiel: regulär alle 4 Stunden ab 03:00, intensiv nach 1 Stunde | Mail | nächste Tagesmail |
+  |---|---|---|---|
+  | Mo 11:00 | Reguläre Prüfung: A geändert | ja | Di 11:00 |
+  | Mo 12:00 | Intensive Prüfung: A erneut geändert | ja | Di 12:00 |
+  | Mo 13:00 … Di 11:00 | Keine neuen Inhalte, B nicht erreichbar | nein | Di 12:00 |
+  | Di 12:00 | 24 Stunden ohne Mail: alle Webseiten prüfen, keine neuen Inhalte | ja, Tagesmail | Mi 12:00 |
+  | Mi 12:00 | wie Di 12:00 | ja, Tagesmail | Do 12:00 |
+  | Mi 19:00 | Reguläre Prüfung: C geändert | ja | Do 19:00 |
+
+- Das Ergebnis wird am Ende des Laufs in `REPORT-of-every-run-last-3-days.txt` vermerkt (`Mail: daily report sent to …`, `Mail: daily mail sent to …`, `Mail: not sent (…)` mit Begründung oder `ERROR: Mail could not be sent: …`). Ein fehlgeschlagener Versand bricht den Lauf nie ab.
 - Mit `use_ssl: true` wird eine SMTPS-Verbindung verwendet (meist Port 465), sonst eine normale Verbindung mit STARTTLS (Port 587).
 - Es wird nur die Python-Standardbibliothek verwendet; ein zusätzliches Paket ist nicht nötig.
 
@@ -467,7 +567,7 @@ Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf au
 - `secrets.json`
   SMTP-Passwort für den Mail-Versand (nicht in Git).
 - `state.json`
-  Zustand des Zeitplans: letzte reguläre Prüfung, Webseiten im Intensiv-Modus (vom Skript geschrieben, nicht in Git).
+  Zustand des Zeitplans: letzte reguläre Prüfung, Webseiten im Intensiv-Modus, Zeitpunkt der letzten Mail (vom Skript geschrieben, nicht in Git).
 - `REPORT-of-every-run-last-3-days.txt`
   Protokollierung von jedem Lauf der letzten drei Tage.
 - `REPORT-daily-summary.txt`
