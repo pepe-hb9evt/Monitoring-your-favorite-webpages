@@ -33,7 +33,7 @@ The script (`webpages_monitor.py`)
 - extracts the visible content with BeautifulSoup/lxml: scripts, styles, hidden elements (`hidden`, `aria-hidden="true"`, `display:none`) and comments are ignored.
 - compares **text**, **images** (including alt text and a hash of inline SVG) and **links** separately.
 - downloads each `<img>` once per run, creates a content hash and stores only the key data (`URL | alt=… | sha1=…`). This also detects an image that was replaced under the same URL. See [Image detection](#image-detection).
-- removes volatile parts from URLs such as `?ver=`, session IDs, CSRF tokens, cache busters and the `refresh` parameter of download links (WordPress Download Manager).
+- removes volatile parts from URLs such as `?ver=`, session IDs, CSRF tokens, cache busters and the `refresh` parameter of download links (WordPress Download Manager). Anchors (`#` followed by a word of letters, digits, `-` and `_`, e.g. `#current-documents` or `#section-2`) are kept; other fragments are removed.
 - stores `javascript:` links without their code (it often contains random names, e.g. to obfuscate e-mail addresses); only the link text is compared.
 - reads the list of webpages to monitor from a JSON file, optionally with username and password (HTTP Basic or WordPress login form).
 - copes with faulty entries in the webpage list and unreachable webpages, so the run does not stop (errors are logged and the remaining webpages are still checked).
@@ -49,8 +49,8 @@ The script (`webpages_monitor.py`)
 Each image is one line in the section `=== IMAGES ===` of a capture file:
 
 ```
-https://example-delta.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
-https://example-delta.com/team.jpg | alt=Team | sha1=?
+https://delta.example.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
+https://delta.example.com/team.jpg | alt=Team | sha1=?
 inline-svg | sha1=8c02e4f1a9b37d60
 ```
 
@@ -64,8 +64,8 @@ Comparison: the lines are compared like text. If the hash of an image (same URL 
 
 ```
  [Images]
-  removed: https://example-delta.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
-  added:   https://example-delta.com/logo.jpg | alt=Logo | sha1=8c02e4f1a9b37d60
+  removed: https://delta.example.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
+  added:   https://delta.example.com/logo.jpg | alt=Logo | sha1=8c02e4f1a9b37d60
 ```
 
 Not detected: CSS background images, `<picture><source>`, `<canvas>` and images loaded by JavaScript. Images that change on every request (webcams, captchas, random banners) are reported on every run; in that case set `"image_hash": false`.
@@ -81,7 +81,7 @@ The file lives in the project folder and is re-read on every run. It is a JSON o
 ### Short form
 
 ```json
-"alpha-news": "https://example-alpha.com/de/news/"
+"alpha-news": "https://alpha.example.com/de/news/"
 ```
 
 <br>
@@ -89,7 +89,7 @@ The file lives in the project folder and is re-read on every run. It is a JSON o
 ### Long form
 
 ```json
-"bravo-dt": { "url": "https://example-bravo.com/dt/" }
+"bravo-dt": { "url": "https://bravo.example.com/dt/" }
 ```
 
 The following variants show what the long form is needed for.
@@ -108,7 +108,7 @@ Other login forms (e.g. MediaWiki, DokuWiki) are **not supported**.
 
 ```json
 "internal": {
-  "url": "https://example-echo.com/internal/",
+  "url": "https://echo.example.com/internal/",
   "username": "my-user",
   "password_env": "MONITOR_PW_INTERNAL"
 }
@@ -128,7 +128,7 @@ If the environment variable is not set during the run, the webpage is skipped; t
 
 ```json
 "private": {
-  "url": "https://example-echo.com/private/",
+  "url": "https://echo.example.com/private/",
   "username": "my-user",
   "password": "my-password"
 }
@@ -142,14 +142,14 @@ Many club and association webpages use the normal WordPress login form instead o
 
 ```json
 "members-reports": {
-  "url": "https://example-golf.com/de/members/reports/",
+  "url": "https://golf.example.com/de/members/reports/",
   "login": "wordpress",
   "username": "my-user",
   "password_env": "MONITOR_PW_MEMBERS"
 }
 ```
 
-- `<webpage>/wp-login.php` is used as the address of the login form. If the webpage uses another address, add `"login_url": "https://example-golf.com/wp-login.php"`.
+- `<webpage>/wp-login.php` is used as the address of the login form. If the webpage uses another address, add `"login_url": "https://golf.example.com/wp-login.php"`.
 - Each login (same `login_url` and same `username`) is done once per run; further pages of the same webpage reuse it. The images of the page are fetched logged in as well.
 - If the login fails, it is not retried in the same run: all pages with the same login then count as errors and get the same message.
 - If the login page cannot be reached (e.g. timeout, connection or HTTP error), the report shows `Login failed: URL not reachable: …` with the exact cause.
@@ -165,9 +165,9 @@ To test with only one or two webpages, put them at the top of the list and add a
 
 ```json
 {
-  "alpha-news": "https://example-alpha.com/de/news/",
+  "alpha-news": "https://alpha.example.com/de/news/",
   "STOP": "everything below is ignored",
-  "bravo-dt": "https://example-bravo.com/dt/"
+  "bravo-dt": "https://bravo.example.com/dt/"
 }
 ```
 
@@ -222,7 +222,7 @@ Optional per webpage: lines that change all the time (solar banners, counters, "
 
 ```json
 "foxtrot-home": {
-  "url": "https://example-foxtrot.com/",
+  "url": "https://foxtrot.example.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Last update:"],
@@ -245,7 +245,7 @@ Page areas that change all the time (e.g. a "related posts" box or a footer with
 
 ```json
 "hotel-blog": {
-  "url": "https://example-hotel.com/blog/",
+  "url": "https://hotel.example.com/blog/",
   "ignore": {
     "elements": ["div.source-footer", "div.prop-list"]
   }
@@ -289,7 +289,7 @@ The selector is built from three parts of this opening tag: the **tag name** (`s
 
 ```json
 "echo-training": {
-  "url": "https://example-echo.com/category/training/",
+  "url": "https://echo.example.com/category/training/",
   "ignore": {
     "elements": [
       "div.source-footer",
@@ -399,8 +399,7 @@ Note: if a webpage changes on every fetch (e.g. a counter or date), a mail is se
 | `--force` | Check now, even if no check is due |
 | `--test-mail` | Send a test mail (content: current daily report) and exit; works also with `"mail_mode": "none"` |
 
-There is also a batch file that conveniently offers these options in a selection menu:<br>
-File `Menu for webpages-monitor-py.bat`
+There is also a batch file that conveniently offers these options in a selection menu:<br>File `Menu for webpages-monitor-py.bat`
 
 <br>
 
@@ -413,8 +412,8 @@ As an alternative to sending the reports by other means (e.g. [with Claude](#opt
    ```json
    "mail_mode": "script",
    "mail_condition": "always",
-   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
-   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@alpha.example.com" },
+   "mail": { "sender": "sender@alpha.example.com", "recipients": ["recipient@bravo.example.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
 2. Copy `secrets.example.json` to `secrets.json` and enter the SMTP password. For Gmail, this is an *app password* (Google account → Security → 2-step verification → App passwords), not the normal account password.
@@ -432,7 +431,7 @@ Daily report:  2 changed, 2 without comparison
 === Run 2026-10-22 13:00 (26 webpages) ===
 
 New information on:
--  https://www.example-alpha.com/news/
+-  https://www.alpha.example.com/news/
 
 Errors:
 (none)
@@ -558,24 +557,15 @@ Test: `schtasks /run /tn "Webpages Monitor 0600"`. Delete: `schtasks /delete /tn
 
 Everything lives in the project folder (the folder `monitored-webpages` is created automatically when needed):
 
-- `webpages_monitor.py`
-  The script.
-- `webpages.json`
-  Your own webpage list (not in Git).
-- `settings.json`
-  Optional settings (not in Git).
-- `secrets.json`
-  SMTP password for the e-mail (not in Git).
-- `state.json`
-  State of the schedule: last regular check, webpages in intensive mode, time of the last mail (written by the script, not in Git).
-- `REPORT-of-every-run-last-3-days.txt`
-  Log of every run of the last three days.
-- `REPORT-daily-summary.txt`
-  Report with a daily comparison, rewritten on every run. Suitable for automatic delivery by e-mail (see [Optional: notification with Claude](#optional-notification-with-claude)).
-- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt`
-  Content of one fetch (text, IMAGES, LINKS); all captures are kept for 48 hours.
-- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`
-  Last capture of that day, kept permanently in the archive.
+- `webpages_monitor.py`: The script.
+- `webpages.json`: Your own webpage list (not in Git).
+- `settings.json`: Optional settings (not in Git).
+- `secrets.json`: SMTP password for the e-mail (not in Git).
+- `state.json`: State of the schedule: last regular check, webpages in intensive mode, time of the last mail (written by the script, not in Git).
+- `REPORT-of-every-run-last-3-days.txt`: Log of every run of the last three days.
+- `REPORT-daily-summary.txt`: Report with a daily comparison, rewritten on every run. Suitable for automatic delivery by e-mail (see [Optional: notification with Claude](#optional-notification-with-claude)).
+- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt`: Content of one fetch (text, IMAGES, LINKS); all captures are kept for 48 hours.
+- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`: Last capture of that day, kept permanently in the archive.
 
 <br>
 
@@ -588,13 +578,13 @@ Previous run: 7 hours ago
 
 No comparison possible for:
 
-https://example-delta.com/offline/
+https://delta.example.com/offline/
 ERROR: URL not reachable: HTTP error 404 Not Found
 
 
 Changes were detected on the following webpages:
 
-https://example-charlie.com/doku.php
+https://charlie.example.com/doku.php
 Changed
  [Text]
   removed: old text
@@ -602,8 +592,8 @@ Changed
 
 
 The following webpages are unchanged:
--  https://example-alpha.com/de/news/
--  https://example-bravo.com/dt/
+-  https://alpha.example.com/de/news/
+-  https://bravo.example.com/dt/
 
 Run finished (06:01:23): 4 webpages processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
@@ -633,10 +623,10 @@ While running, the script shows which webpage is being fetched and the result:
 ```
 Webpages monitor – run 2026-10-22 11:00 – 26 webpages
 
-[ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
-[ 2/26] https://example-bravo.com/dt/ ... CHANGED (4.8 s)
-[ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
-[ 4/26] https://example-golf.com/de/members/reports/ ... login... no change (3.3 s)
+[ 1/26] https://alpha.example.com/de/news/ ... no change (2.1 s)
+[ 2/26] https://bravo.example.com/dt/ ... CHANGED (4.8 s)
+[ 3/26] https://delta.example.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
+[ 4/26] https://golf.example.com/de/members/reports/ ... login... no change (3.3 s)
 
 Writing reports ... done
 
@@ -738,5 +728,4 @@ Use at your own risk (see also the [license](LICENSE)). This applies in particul
 
 **Author:**
 
-Pepe HB9EVT, https://github.com/pepe-hb9evt
-with support from the AI Claude by Anthropic (see chapter [Vibe coding declaration](#vibe-coding-declaration))
+Pepe HB9EVT, https://github.com/pepe-hb9evt with support from the AI Claude by Anthropic (see chapter [Vibe coding declaration](#vibe-coding-declaration))

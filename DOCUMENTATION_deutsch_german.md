@@ -33,7 +33,7 @@ Das Skript (`webpages_monitor.py`)
 - extrahiert den sichtbaren Inhalt mit BeautifulSoup/lxml: Skripte, Styles, versteckte Elemente (`hidden`, `aria-hidden="true"`, `display:none`) und Kommentare werden ignoriert.
 - vergleicht **Text**, **Bilder** (inklusive Alt-Text und Hash von Inline-SVG) und **Links** getrennt.
 - lädt jedes `<img>` pro Lauf einmal herunter, erzeugt einen Inhalts-Hash und speichert nur die Kenndaten (`URL | alt=… | sha1=…`). So wird auch ein Bild erkannt, das unter derselben URL ausgetauscht wurde. Siehe [Bilderkennung](#bilderkennung).
-- entfernt wechselnde Bestandteile aus URLs wie `?ver=`, Session-IDs, CSRF-Tokens, Cache-Buster und den Parameter `refresh` von Download-Links (WordPress Download Manager).
+- entfernt wechselnde Bestandteile aus URLs wie `?ver=`, Session-IDs, CSRF-Tokens, Cache-Buster und den Parameter `refresh` von Download-Links (WordPress Download Manager). Anker (`#` gefolgt von einem Wort aus Buchstaben, Ziffern, `-` und `_`, z. B. `#aktuelle-dokumente` oder `#section-2`) bleiben erhalten; andere Fragmente werden entfernt.
 - speichert `javascript:`-Links ohne ihren Code (dieser enthält oft zufällige Namen, z. B. zur Verschleierung von E-Mail-Adressen); verglichen wird nur der Link-Text.
 - holt sich die Liste der zu beobachtenden Webseiten aus einer JSON-Datei, optional mit Benutzername und Passwort (HTTP Basic oder WordPress-Anmeldeformular).
 - kann mit fehlerhaften Einträgen in der Webseiten-Liste und nicht erreichbaren Webseiten umgehen, sodass der Lauf nicht abbricht (Fehler werden protokolliert und die übrigen Webseiten werden trotzdem geprüft).
@@ -49,8 +49,8 @@ Das Skript (`webpages_monitor.py`)
 Jedes Bild ist eine Zeile im Abschnitt `=== IMAGES ===` einer Erfassungsdatei:
 
 ```
-https://example-delta.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
-https://example-delta.com/team.jpg | alt=Team | sha1=?
+https://delta.example.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
+https://delta.example.com/team.jpg | alt=Team | sha1=?
 inline-svg | sha1=8c02e4f1a9b37d60
 ```
 
@@ -64,8 +64,8 @@ Vergleich: Die Zeilen werden wie Text verglichen. Fehlt auf einer Seite der Hash
 
 ```
  [Images]
-  removed: https://example-delta.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
-  added:   https://example-delta.com/logo.jpg | alt=Logo | sha1=8c02e4f1a9b37d60
+  removed: https://delta.example.com/logo.jpg | alt=Logo | sha1=3f9a1c0e7b2d4a51
+  added:   https://delta.example.com/logo.jpg | alt=Logo | sha1=8c02e4f1a9b37d60
 ```
 
 Nicht erkannt werden: CSS-Hintergrundbilder, `<picture><source>`, `<canvas>` und per JavaScript geladene Bilder. Bilder, die sich bei jedem Abruf ändern (Webcams, Captchas, zufällige Banner), werden bei jedem Lauf gemeldet; in diesem Fall `"image_hash": false` setzen.
@@ -81,7 +81,7 @@ Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist
 ### Kurzform
 
 ```json
-"alpha-news": "https://example-alpha.com/de/news/"
+"alpha-news": "https://alpha.example.com/de/news/"
 ```
 
 <br>
@@ -89,7 +89,7 @@ Die Datei liegt im Projektordner und wird bei jedem Lauf neu eingelesen. Sie ist
 ### Langform
 
 ```json
-"bravo-dt": { "url": "https://example-bravo.com/dt/" }
+"bravo-dt": { "url": "https://bravo.example.com/dt/" }
 ```
 
 Für was die Langform benötigt wird,  zeigen die folgenden Varianten.
@@ -108,7 +108,7 @@ Unterstützt wird das Login mit HTTP Basic sowie das WordPress-Anmeldeformular.
 
 ```json
 "internal": {
-  "url": "https://example-echo.com/internal/",
+  "url": "https://echo.example.com/internal/",
   "username": "my-user",
   "password_env": "MONITOR_PW_INTERNAL"
 }
@@ -128,7 +128,7 @@ Ist die Umgebungsvariable beim Lauf nicht gesetzt, wird die Webseite übersprung
 
 ```json
 "private": {
-  "url": "https://example-echo.com/private/",
+  "url": "https://echo.example.com/private/",
   "username": "my-user",
   "password": "my-password"
 }
@@ -142,14 +142,14 @@ Viele Vereins- und Verbandsseiten nutzen statt HTTP Basic das normale WordPress-
 
 ```json
 "members-reports": {
-  "url": "https://example-golf.com/de/members/reports/",
+  "url": "https://golf.example.com/de/members/reports/",
   "login": "wordpress",
   "username": "my-user",
   "password_env": "MONITOR_PW_MEMBERS"
 }
 ```
 
-- Als Adresse des Anmeldeformulars wird `<Webseite>/wp-login.php` verwendet. Verwendet die Webseite eine andere Adresse, `"login_url": "https://example-golf.com/wp-login.php"` ergänzen.
+- Als Adresse des Anmeldeformulars wird `<Webseite>/wp-login.php` verwendet. Verwendet die Webseite eine andere Adresse, `"login_url": "https://golf.example.com/wp-login.php"` ergänzen.
 - Jede Anmeldung (gleiche `login_url` und gleicher `username`) erfolgt einmal pro Lauf; weitere Seiten derselben Webseite verwenden sie mit. Auch die Bilder der Seite werden angemeldet abgerufen.
 - Schlägt die Anmeldung fehl, wird sie im selben Lauf nicht wiederholt: Alle Seiten mit derselben Anmeldung zählen dann als Fehler und erhalten dieselbe Meldung.
 - Ist die Anmeldeseite nicht erreichbar (z. B. Zeitüberschreitung, Verbindungs- oder HTTP-Fehler), steht im Report `Login failed: URL not reachable: …` mit der genauen Ursache.
@@ -165,9 +165,9 @@ Für einen Test mit nur ein oder zwei Webseiten diese zuoberst in die Liste setz
 
 ```json
 {
-  "alpha-news": "https://example-alpha.com/de/news/",
+  "alpha-news": "https://alpha.example.com/de/news/",
   "STOP": "everything below is ignored",
-  "bravo-dt": "https://example-bravo.com/dt/"
+  "bravo-dt": "https://bravo.example.com/dt/"
 }
 ```
 
@@ -222,7 +222,7 @@ Optional pro Webseite: Zeilen, die sich ständig ändern (Solar-Banner, Zähler,
 
 ```json
 "foxtrot-home": {
-  "url": "https://example-foxtrot.com/",
+  "url": "https://foxtrot.example.com/",
   "ignore": {
     "images": ["hamqsl.com/solarbc.php"],
     "text": ["re:^Letzte Aktualisierung:"],
@@ -245,7 +245,7 @@ Seitenbereiche, die sich ständig ändern (z. B. ein Kasten „Ähnliche Beiträ
 
 ```json
 "hotel-blog": {
-  "url": "https://example-hotel.com/blog/",
+  "url": "https://hotel.example.com/blog/",
   "ignore": {
     "elements": ["div.source-footer", "div.prop-list"]
   }
@@ -289,7 +289,7 @@ Der Selektor wird aus drei Teilen dieses öffnenden Tags gebildet: dem **Tag-Nam
 
 ```json
 "echo-ausbildung": {
-  "url": "https://example-echo.com/category/ausbildung/",
+  "url": "https://echo.example.com/category/ausbildung/",
   "ignore": {
     "elements": [
       "div.source-footer",
@@ -399,8 +399,7 @@ Hinweis: Ändert sich eine Webseite bei jedem Abruf (z. B. Zähler, Datum), gibt
 | `--force` | Sofort prüfen, auch wenn keine Prüfung fällig ist |
 | `--test-mail` | Testmail senden (Inhalt: aktueller Daily Report) und beenden; funktioniert auch mit `"mail_mode": "none"` |
 
-Hierzu gibt es auch eine Batch-Datei, welche diese Optionen bequem in einem Auswahlmenu anbietet:<br>
-Datei `Menu for webpages-monitor-py.bat`
+Hierzu gibt es auch eine Batch-Datei, welche diese Optionen bequem in einem Auswahlmenu anbietet:<br>Datei `Menu for webpages-monitor-py.bat`
 
 <br>
 
@@ -413,8 +412,8 @@ Als Alternative zum Versand der Reports auf anderem Weg (z. B. [mit Claude](#opt
    ```json
    "mail_mode": "script",
    "mail_condition": "always",
-   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
-   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@alpha.example.com" },
+   "mail": { "sender": "sender@alpha.example.com", "recipients": ["recipient@bravo.example.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
 2. `secrets.example.json` nach `secrets.json` kopieren und das SMTP-Passwort eintragen. Bei Gmail ist das ein *App-Passwort* (Google-Konto → Sicherheit → Bestätigung in zwei Schritten → App-Passwörter), nicht das normale Kontopasswort.
@@ -432,7 +431,7 @@ Daily report:  2 changed, 2 without comparison
 === Run 2026-10-22 13:00 (26 webpages) ===
 
 New information on:
--  https://www.example-alpha.com/news/
+-  https://www.alpha.example.com/news/
 
 Errors:
 (none)
@@ -558,24 +557,15 @@ Testen: `schtasks /run /tn "Webpages Monitor 0600"`. Löschen: `schtasks /delete
 
 Alles liegt im Projektordner (der Ordner `monitored-webpages` wird bei Bedarf automatisch angelegt):
 
-- `webpages_monitor.py`
-  Das Skript.
-- `webpages.json`
-  Eigene Webseiten-Liste (nicht in Git).
-- `settings.json`
-  Optionale Einstellungen (nicht in Git).
-- `secrets.json`
-  SMTP-Passwort für den Mail-Versand (nicht in Git).
-- `state.json`
-  Zustand des Zeitplans: letzte reguläre Prüfung, Webseiten im Intensiv-Modus, Zeitpunkt der letzten Mail (vom Skript geschrieben, nicht in Git).
-- `REPORT-of-every-run-last-3-days.txt`
-  Protokollierung von jedem Lauf der letzten drei Tage.
-- `REPORT-daily-summary.txt`
-  Report mit einem Tagesvergleich, wird bei jedem Lauf neu geschrieben. Geeignet, um sich diesen automatisiert per Mail zustellen zu lassen (siehe [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)).
-- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt`
-  Inhalt eines Abrufs (Text, IMAGES, LINKS); alle Erfassungen werden 48 Stunden aufbewahrt.
-- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`
-  Letzte Erfassung dieses Tages, dauerhaft im Archiv abgelegt.
+- `webpages_monitor.py`: Das Skript.
+- `webpages.json`: Eigene Webseiten-Liste (nicht in Git).
+- `settings.json`: Optionale Einstellungen (nicht in Git).
+- `secrets.json`: SMTP-Passwort für den Mail-Versand (nicht in Git).
+- `state.json`: Zustand des Zeitplans: letzte reguläre Prüfung, Webseiten im Intensiv-Modus, Zeitpunkt der letzten Mail (vom Skript geschrieben, nicht in Git).
+- `REPORT-of-every-run-last-3-days.txt`: Protokollierung von jedem Lauf der letzten drei Tage.
+- `REPORT-daily-summary.txt`: Report mit einem Tagesvergleich, wird bei jedem Lauf neu geschrieben. Geeignet, um sich diesen automatisiert per Mail zustellen zu lassen (siehe [Optional: Benachrichtigung mit Claude](#optional-benachrichtigung-mit-claude)).
+- `monitored-webpages/<shortname>/captured_<YYYY-MM-DD_HHHMM>.txt`: Inhalt eines Abrufs (Text, IMAGES, LINKS); alle Erfassungen werden 48 Stunden aufbewahrt.
+- `monitored-webpages/<shortname>/archive/<YYYY-MM-DD>.txt`: Letzte Erfassung dieses Tages, dauerhaft im Archiv abgelegt.
 
 <br>
 
@@ -590,13 +580,13 @@ Previous run: 7 hours ago
 
 No comparison possible for:
 
-https://example-delta.com/offline/
+https://delta.example.com/offline/
 ERROR: URL not reachable: HTTP error 404 Not Found
 
 
 Changes were detected on the following webpages:
 
-https://example-charlie.com/doku.php
+https://charlie.example.com/doku.php
 Changed
  [Text]
   removed: old text
@@ -604,8 +594,8 @@ Changed
 
 
 The following webpages are unchanged:
--  https://example-alpha.com/de/news/
--  https://example-bravo.com/dt/
+-  https://alpha.example.com/de/news/
+-  https://bravo.example.com/dt/
 
 Run finished (06:01:23): 4 webpages processed, 1 changed, 1 errors, 0 first runs, 0 list/settings errors
 ```
@@ -635,10 +625,10 @@ Während des Laufs zeigt das Skript, welche Webseite gerade abgerufen wird, und 
 ```
 Webpages monitor – run 2026-10-22 11:00 – 26 webpages
 
-[ 1/26] https://example-alpha.com/de/news/ ... no change (2.1 s)
-[ 2/26] https://example-bravo.com/dt/ ... CHANGED (4.8 s)
-[ 3/26] https://example-delta.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
-[ 4/26] https://example-golf.com/de/members/reports/ ... login... no change (3.3 s)
+[ 1/26] https://alpha.example.com/de/news/ ... no change (2.1 s)
+[ 2/26] https://bravo.example.com/dt/ ... CHANGED (4.8 s)
+[ 3/26] https://delta.example.com/offline/ ... ERROR: timeout (45 s) (45.0 s)
+[ 4/26] https://golf.example.com/de/members/reports/ ... login... no change (3.3 s)
 
 Writing reports ... done
 
@@ -740,5 +730,4 @@ Die Nutzung erfolgt auf eigenes Risiko (siehe auch die [Lizenz](LICENSE)). Das g
 
 **Autor:**
 
-Pepe HB9EVT, https://github.com/pepe-hb9evt
-mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))
+Pepe HB9EVT, https://github.com/pepe-hb9evt mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))

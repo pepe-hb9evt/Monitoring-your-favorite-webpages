@@ -234,8 +234,12 @@ def progress_status(lines, status):
 
 
 # --- Content extraction --------------------------------------------------------------------
+ANCHOR_RE = re.compile(r"[A-Za-z0-9_-]+")  # anchors that are kept in URLs, e.g. #aktuelle-dokumente, #section-2
+
+
 def clean_url(url, base):
-    """Make a URL absolute and drop fragments and volatile parameters."""
+    """Make a URL absolute and drop volatile parameters. A fragment is kept only if it is a plain
+    anchor word (#name of letters, digits, "-" and "_"); other fragments (e.g. #!/route?x=1) are dropped."""
     if not url or url.strip() in ("", "<>", "#"):
         return None
     if url.strip().lower().startswith("javascript:"):
@@ -248,7 +252,8 @@ def clean_url(url, base):
          if k.lower() not in NOISE_PARAMS and not (k.isdigit() and v == "")]
     # timestamp-like bare numeric parameters (e.g. taskrunner.php?...&1699999999)
     q = [(k, v) for k, v in q if not (v == "" and re.fullmatch(r"\d{8,}", k))]
-    return urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q), ""))
+    fragment = p.fragment if ANCHOR_RE.fullmatch(p.fragment) else ""
+    return urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q), fragment))
 
 
 def is_hidden(tag):

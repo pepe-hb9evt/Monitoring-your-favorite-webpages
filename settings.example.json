@@ -43,11 +43,11 @@
     "port": 587,
     "use_starttls": true,
     "use_ssl": false,
-    "username": "sender@example-alpha.com"
+    "username": "sender@alpha.example.com"
   },
   "mail": {
-    "sender": "sender@example-alpha.com",
-    "recipients": ["recipient@example-bravo.com"],
+    "sender": "sender@alpha.example.com",
+    "recipients": ["recipient@bravo.example.com"],
     "subject_prefix": "[Webpage Monitoring]"
   },
 
