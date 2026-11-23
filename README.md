@@ -83,23 +83,47 @@ The first run only saves a baseline; comparison starts with the second run.
 
 <br>
 
+## Folder structure
+
+```
+<project folder>/
+├── webpages_monitor.py                  the script
+├── requirements.txt                     required Python packages
+├── Menu for webpages-monitor-py.bat     selection menu for manual runs
+├── install_task.ps1                     register or remove the hourly task
+├── webpages.example.json                template for webpages.json
+├── settings.example.json                template for settings.json
+├── secrets.example.json                 template for secrets.json
+├── README_deutsch_german.md, README.md
+├── DOCUMENTATION_deutsch_german.md, DOCUMENTATION.md
+├── LICENSE
+│
+│   Created by the user or written by the script (not in Git):
+├── CHANGELOG_deutsch_german.md          change log in German (local only)
+├── webpages.json, settings.json, secrets.json
+├── state.json                           state of the schedule
+├── REPORT-of-every-run-last-3-days.txt, REPORT-daily-summary.txt
+└── monitored-webpages/<shortname>/      captures of the last 48 hours, subfolder archive/
+```
+
+<br>
+
 ## Webpage list (`webpages.json`)
 
 The webpages to monitor are entered in `webpages.json`:
 
 ```json
 {
-  "alpha-news": "https://example-alpha.com/de/news/",
+  "alpha-news": "https://alpha.example.com/de/news/",
   "internal": {
-    "url": "https://example-echo.com/internal/",
+    "url": "https://echo.example.com/internal/",
     "username": "my-user",
     "password_env": "MONITOR_PW_INTERNAL"
   }
 }
 ```
 
-All formats, rules and options are described in:
-[DOCUMENTATION.md → Webpage list](DOCUMENTATION.md#webpage-list-webpagesjson).
+All formats, rules and options are described in: [DOCUMENTATION.md → Webpage list](DOCUMENTATION.md#webpage-list-webpagesjson).
 
 If a webpage contains parts that change on every fetch (e.g. counters, dates, "related posts"), the script reports a change on every check and sends correspondingly many e-mails. Such parts can be hidden per webpage with the option `ignore`: [DOCUMENTATION.md → `ignore`](DOCUMENTATION.md#ignore).
 
@@ -114,8 +138,8 @@ By default, the script sends no e-mails. This is how sending is set up:
    ```json
    "mail_mode": "script",
    "mail_condition": "always",
-   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
-   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@alpha.example.com" },
+   "mail": { "sender": "sender@alpha.example.com", "recipients": ["recipient@bravo.example.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
    `"mail_condition": "always"` sends an e-mail after every check, `"on_change"` only on a change or an error, `"on_change_and_daily"` only on new content and otherwise a daily mail 24 hours after the last mail (sign of life).
@@ -216,14 +240,10 @@ A manual check can be started
 
 The following text files are created on every run:
 
-- `REPORT-of-every-run-last-3-days.txt`
-  Log of every run of the last three days.
-- `REPORT-daily-summary.txt`
-  Report with a daily comparison. Can be sent by e-mail by the script itself (`"mail_mode": "script"`).
-- `monitored-webpages/<shortname>/captured_*.txt`
-  All captures are kept for 48 hours. They are used to detect what has changed since the last run and within the last 24 hours (see the two reports above).
-- `monitored-webpages/<shortname>/archive/*.txt`
-  One capture per day is kept permanently in the archive.
+- `REPORT-of-every-run-last-3-days.txt`: Log of every run of the last three days.
+- `REPORT-daily-summary.txt`: Report with a daily comparison. Can be sent by e-mail by the script itself (`"mail_mode": "script"`).
+- `monitored-webpages/<shortname>/captured_*.txt`: All captures are kept for 48 hours. They are used to detect what has changed since the last run and within the last 24 hours (see the two reports above).
+- `monitored-webpages/<shortname>/archive/*.txt`: One capture per day is kept permanently in the archive.
 
 Report layouts and exit codes: [DOCUMENTATION.md → Output](DOCUMENTATION.md#output).
 
@@ -258,5 +278,4 @@ Use at your own risk (see also the [license](LICENSE)). This applies in particul
 
 **Author:**
 
-Pepe HB9EVT, https://github.com/pepe-hb9evt
-with support from the AI Claude by Anthropic (see chapter [Vibe coding declaration](#vibe-coding-declaration))
+Pepe HB9EVT, https://github.com/pepe-hb9evt with support from the AI Claude by Anthropic (see chapter [Vibe coding declaration](#vibe-coding-declaration))

@@ -83,23 +83,47 @@ Der erste Lauf speichert nur einen Ausgangsstand; verglichen wird ab dem zweiten
 
 <br>
 
+## Ordnerstruktur
+
+```
+<Projektordner>/
+├── webpages_monitor.py                  das Skript
+├── requirements.txt                     benötigte Python-Pakete
+├── Menu for webpages-monitor-py.bat     Auswahlmenü für manuelle Läufe
+├── install_task.ps1                     stündliche Aufgabe registrieren bzw. löschen
+├── webpages.example.json                Vorlage für webpages.json
+├── settings.example.json                Vorlage für settings.json
+├── secrets.example.json                 Vorlage für secrets.json
+├── README_deutsch_german.md, README.md
+├── DOCUMENTATION_deutsch_german.md, DOCUMENTATION.md
+├── LICENSE
+│
+│   Vom Benutzer angelegt bzw. vom Skript geschrieben (nicht in Git):
+├── CHANGELOG_deutsch_german.md          Änderungsprotokoll (nur lokal)
+├── webpages.json, settings.json, secrets.json
+├── state.json                           Zustand des Zeitplans
+├── REPORT-of-every-run-last-3-days.txt, REPORT-daily-summary.txt
+└── monitored-webpages/<shortname>/      Erfassungen der letzten 48 Stunden, Unterordner archive/
+```
+
+<br>
+
 ## Webseiten-Liste (`webpages.json`)
 
 Die zu überwachenden Webseiten werden in `webpages.json` eingetragen:
 
 ```json
 {
-  "alpha-news": "https://example-alpha.com/de/news/",
+  "alpha-news": "https://alpha.example.com/de/news/",
   "internal": {
-    "url": "https://example-echo.com/internal/",
+    "url": "https://echo.example.com/internal/",
     "username": "my-user",
     "password_env": "MONITOR_PW_INTERNAL"
   }
 }
 ```
 
-Alle Formate, Regeln und Optionen sind nachzulesen in:
-[DOCUMENTATION_deutsch_german.md → Webseiten-Liste](DOCUMENTATION_deutsch_german.md#webseiten-liste-webpagesjson).
+Alle Formate, Regeln und Optionen sind nachzulesen in: [DOCUMENTATION_deutsch_german.md → Webseiten-Liste](DOCUMENTATION_deutsch_german.md#webseiten-liste-webpagesjson).
 
 Enthält eine Webseite Teile, die sich bei jedem Abruf ändern (z. B. Zähler, Datum, „Ähnliche Beiträge“), meldet das Skript bei jeder Prüfung eine Änderung und verschickt entsprechend viele Mails. Solche Teile lassen sich mit der Option `ignore` pro Webseite ausblenden: [DOCUMENTATION_deutsch_german.md → `ignore`](DOCUMENTATION_deutsch_german.md#ignore).
 
@@ -114,8 +138,8 @@ Ab Werk versendet das Skript keine Mails. So wird der Mail-Versand eingerichtet:
    ```json
    "mail_mode": "script",
    "mail_condition": "always",
-   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@example-alpha.com" },
-   "mail": { "sender": "sender@example-alpha.com", "recipients": ["recipient@example-bravo.com"], "subject_prefix": "[Webpage Monitoring]" }
+   "smtp": { "host": "smtp.gmail.com", "port": 587, "use_starttls": true, "use_ssl": false, "username": "sender@alpha.example.com" },
+   "mail": { "sender": "sender@alpha.example.com", "recipients": ["recipient@bravo.example.com"], "subject_prefix": "[Webpage Monitoring]" }
    ```
 
    `"mail_condition": "always"` versendet nach jeder Prüfung eine Mail, `"on_change"` nur bei einer Änderung oder einem Fehler, `"on_change_and_daily"` nur bei neuen Inhalten und sonst eine Tagesmail 24 Stunden nach der letzten Mail (Lebenszeichen).
@@ -216,14 +240,10 @@ Eine manuelle Prüfung kann ausgelöst werden
 
 Folgende Textdateien werden bei jedem Lauf erzeugt:
 
-- `REPORT-of-every-run-last-3-days.txt`
-  Protokollierung von jedem Lauf der letzten drei Tage.
-- `REPORT-daily-summary.txt`
-  Report mit einem Tagesvergleich. Kann vom Skript selbst per Mail versendet werden (`"mail_mode": "script"`).
-- `monitored-webpages/<shortname>/captured_*.txt` 
-  Alle Erfassungen werden für 48 Stunden aufbewahrt. Anhand diesen wird detektiert, was sich seit letztem  Lauf und innert den letzten 24 Stunden geändert hat (vgl. oben die zwei "Reports").
-- `monitored-webpages/<shortname>/archive/*.txt`  
-  Eine Erfassung pro Tag wird dauerhaft im Archiv abgelegt.
+- `REPORT-of-every-run-last-3-days.txt`: Protokollierung von jedem Lauf der letzten drei Tage.
+- `REPORT-daily-summary.txt`: Report mit einem Tagesvergleich. Kann vom Skript selbst per Mail versendet werden (`"mail_mode": "script"`).
+- `monitored-webpages/<shortname>/captured_*.txt`: Alle Erfassungen werden für 48 Stunden aufbewahrt. Anhand diesen wird detektiert, was sich seit letztem  Lauf und innert den letzten 24 Stunden geändert hat (vgl. oben die zwei "Reports").
+- `monitored-webpages/<shortname>/archive/*.txt`: Eine Erfassung pro Tag wird dauerhaft im Archiv abgelegt.
 
 Aufbau der Reports und Exit-Codes: [DOCUMENTATION_deutsch_german.md → Ausgabe](DOCUMENTATION_deutsch_german.md#ausgabe).
 
@@ -258,5 +278,4 @@ Die Nutzung erfolgt auf eigenes Risiko (siehe auch die [Lizenz](LICENSE)). Das g
 
 **Autor:**
 
-Pepe HB9EVT, https://github.com/pepe-hb9evt
-mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))
+Pepe HB9EVT, https://github.com/pepe-hb9evt mit Unterstützung durch die KI Claude von Anthropic (vgl. Kapitel [Vibe-Coding-Deklaration](#vibe-coding-deklaration))
