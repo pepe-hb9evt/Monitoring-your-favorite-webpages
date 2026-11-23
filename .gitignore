@@ -5,8 +5,9 @@
 # Ignore everything ...
 /*
 
-# .. except this wihte list:
+# .. except this white list:
 !/.gitignore
+!/.gitattributes
 !/LICENSE
 !/README.md
 !/README_deutsch_german.md
